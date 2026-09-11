@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+import questionary
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -57,52 +58,62 @@ class StyleOption(str, enum.Enum):
 
 MODE_HELP = "Con que responden los agentes: 'knowledge' (solo su conocimiento) o 'mcp' (usan tools: stats + busqueda web)."
 STYLE_HELP = "Como interactuan: 'answer' (responden la pregunta solos) o 'debate' (se ven y se rebaten entre si)."
+ROUNDS_HELP = (
+    "Rondas de intervencion por cada equipo. Si no se especifica: 2 (4 turnos) "
+    "en estilo debate, 1 (2 turnos) en estilo answer."
+)
 
 MODE_CHOICES = [
-    (ModeOption.mcp, "Con herramientas MCP (stats internas + busqueda web si hace falta)"),
-    (ModeOption.knowledge, "Solo con su conocimiento propio (sin tools)"),
+    (MODE_MCP, "Con herramientas MCP (stats internas + busqueda web si hace falta)"),
+    (MODE_KNOWLEDGE, "Solo con su conocimiento propio (sin tools)"),
 ]
 STYLE_CHOICES = [
-    (StyleOption.debate, "Discusion: se ven entre si, se rebaten y defienden su postura"),
-    (StyleOption.answer, "Respuesta directa: cada uno contesta la pregunta sin ver al rival"),
+    (STYLE_DEBATE, "Discusion: se ven entre si, se rebaten y defienden su postura"),
+    (STYLE_ANSWER, "Respuesta directa: cada uno contesta la pregunta sin ver al rival"),
 ]
+DEFAULT_ROUNDS_BY_STYLE = {STYLE_DEBATE: 2, STYLE_ANSWER: 1}
 
 
-def _prompt_choice(label: str, choices, default) -> str:
-    console.print(f"[bold]{label}[/bold]")
-    for i, (value, desc) in enumerate(choices, start=1):
-        marker = " [dim](default)[/dim]" if value == default else ""
-        console.print(f"  {i}. {desc}{marker}")
-    default_index = [v for v, _ in choices].index(default) + 1
+def _prompt_choice(label: str, choices: List[tuple], default: str) -> str:
+    """Menu de seleccion directa (flechas + Enter) via questionary.
+
+    Si no hay una terminal real (stdin no es tty) o el menu falla por
+    cualquier motivo, usamos el default en silencio en vez de romper la CLI.
+    """
+    if not sys.stdin.isatty():
+        return default
+    qchoices = [questionary.Choice(title=desc, value=value) for value, desc in choices]
+    default_choice = next((c for c in qchoices if c.value == default), qchoices[0])
     try:
-        raw = typer.prompt("Elegi una opcion", default=str(default_index))
-    except (KeyboardInterrupt, EOFError):
-        return default.value
-    try:
-        return choices[int(raw) - 1][0].value
-    except (ValueError, IndexError):
-        return default.value
+        answer = questionary.select(label, choices=qchoices, default=default_choice).ask()
+    except Exception:
+        return default
+    return answer if answer is not None else default
 
 
 def _resolve_config(mode: Optional[ModeOption], style: Optional[StyleOption], interactive: bool):
     """Devuelve (mode, style) como strings. Si faltan y `interactive` es True,
-    los pregunta con un mini-menu; si no, usa los defaults.
+    los pregunta con un menu de seleccion directa; si no, usa los defaults.
     """
     if mode is not None:
         mode_value = mode.value
     elif interactive:
-        mode_value = _prompt_choice("¿Como quieres que respondan los agentes?", MODE_CHOICES, ModeOption.mcp)
+        mode_value = _prompt_choice("¿Como quieres que respondan los agentes?", MODE_CHOICES, MODE_MCP)
     else:
-        mode_value = ModeOption.mcp.value
+        mode_value = MODE_MCP
 
     if style is not None:
         style_value = style.value
     elif interactive:
-        style_value = _prompt_choice("¿Modo de interaccion entre los agentes?", STYLE_CHOICES, StyleOption.debate)
+        style_value = _prompt_choice("¿Modo de interaccion entre los agentes?", STYLE_CHOICES, STYLE_DEBATE)
     else:
-        style_value = StyleOption.debate.value
+        style_value = STYLE_DEBATE
 
     return mode_value, style_value
+
+
+def _resolve_rounds(rounds: Optional[int], style: str) -> int:
+    return rounds if rounds is not None else DEFAULT_ROUNDS_BY_STYLE.get(style, 1)
 
 
 def _print_tool_trace(team: str, tool_calls: List[dict]) -> None:
@@ -206,7 +217,7 @@ async def _run_debate(
 
 @app.command()
 def chat(
-    rounds: int = typer.Option(1, help="Rondas de intervencion por cada equipo."),
+    rounds: Optional[int] = typer.Option(None, help=ROUNDS_HELP),
     export: Optional[Path] = typer.Option(None, "--export", help=EXPORT_HELP),
     mode: Optional[ModeOption] = typer.Option(None, "--mode", help=MODE_HELP),
     style: Optional[StyleOption] = typer.Option(None, "--style", help=STYLE_HELP),
@@ -214,7 +225,12 @@ def chat(
     """Chat interactivo: escribe preguntas de futbol, 'salir' para terminar."""
     console.print("[bold]Debate Barcelona vs Real Madrid[/bold] - escribe 'salir' para terminar.\n")
     mode_value, style_value = _resolve_config(mode, style, interactive=True)
-    console.print(f"\n[dim]Configuracion: modo={mode_value} | estilo={style_value}[/dim]\n")
+    rounds_value = _resolve_rounds(rounds, style_value)
+    turnos = rounds_value * 2
+    console.print(
+        f"\n[dim]Configuracion: modo={mode_value} | estilo={style_value} | "
+        f"{rounds_value} rondas ({turnos} turnos, {rounds_value} respuestas c/u)[/dim]\n"
+    )
 
     while True:
         try:
@@ -224,20 +240,21 @@ def chat(
             break
         if question.strip().lower() in {"salir", "exit", "quit"}:
             break
-        asyncio.run(_run_debate(question, rounds, mode_value, style_value, export))
+        asyncio.run(_run_debate(question, rounds_value, mode_value, style_value, export))
         console.print()
 
 
 @app.command()
 def ask(
     question: str,
-    rounds: int = typer.Option(1, help="Rondas de intervencion por cada equipo."),
+    rounds: Optional[int] = typer.Option(None, help=ROUNDS_HELP),
     export: Optional[Path] = typer.Option(None, "--export", help=EXPORT_HELP),
     mode: ModeOption = typer.Option(ModeOption.mcp, "--mode", help=MODE_HELP),
     style: StyleOption = typer.Option(StyleOption.debate, "--style", help=STYLE_HELP),
 ) -> None:
     """Hace una sola pregunta y termina (util para scripts/pruebas)."""
-    asyncio.run(_run_debate(question, rounds, mode.value, style.value, export))
+    rounds_value = _resolve_rounds(rounds, style.value)
+    asyncio.run(_run_debate(question, rounds_value, mode.value, style.value, export))
 
 
 if __name__ == "__main__":
