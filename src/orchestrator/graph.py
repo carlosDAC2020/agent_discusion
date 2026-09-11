@@ -36,11 +36,31 @@ def _format_context(question: str, messages: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def _extract_text(content) -> str:
+    """Normaliza el content de un AIMessage a texto plano.
+
+    Algunos proveedores (p.ej. Gemini) devuelven una lista de bloques
+    estructurados (`[{"type": "text", "text": "..."}, ...]`) en vez de un
+    string simple; el resto del pipeline (CLI, export) espera texto plano.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(content)
+
+
 def _make_node(team_key: str, agent):
-    def node(state: DebateState):
+    async def node(state: DebateState):
         context = _format_context(state["question"], state["messages"])
-        result = agent.invoke({"messages": [{"role": "user", "content": context}]})
-        reply = result["messages"][-1].content
+        result = await agent.ainvoke({"messages": [{"role": "user", "content": context}]})
+        reply = _extract_text(result["messages"][-1].content)
         return {
             "messages": state["messages"] + [{"team": team_key, "content": reply}],
             "turns_taken": state["turns_taken"] + 1,
