@@ -28,14 +28,17 @@ con su propia carpeta, para minimizar conflictos entre desarrolladores.
 
 ## Dev 3 — Servidor MCP y datos (`src/mcp_server`)
 
-- `src/mcp_server/data.py`: fuente de datos (estadisticas de equipos,
-  jugadores, historial de clasicos). Hoy es un diccionario en memoria.
-- `src/mcp_server/server.py`: definicion de herramientas MCP
-  (`get_team_stats`, `get_player_stats`, `compare_players`,
-  `get_head_to_head`).
-- Pendiente / ideas de extension: reemplazar los datos mock por una API
-  real de estadisticas, agregar cache, nuevas herramientas (ej.
-  `get_next_match`, `get_injuries`).
+- `src/mcp_server/data.py`: fuente de datos (estadisticas ampliadas de equipos,
+  plantillas completas de 20 jugadores, historial detallado de clasicos y estado de bajas).
+- `src/mcp_server/server.py`: definicion de herramientas MCP:
+  - `get_team_stats(team: str)`: estadisticas, palmares y temporada actual.
+  - `get_player_stats(player_name: str)`: estadisticas individuales con soporte de alias/apodos.
+  - `compare_players(player_a: str, player_b: str)`: comparativa cara a cara.
+  - `get_head_to_head()`: ultimos 5 y 10 clasicos, balance historico y mayores goleadas.
+  - `get_head_to_head_summary()`: resumen cuantitativo del historial oficial.
+  - `get_trophies_comparison()`: comparativa directa de titulos oficiales entre ambos clubes.
+  - `get_injuries_or_squad_status(team: str)`: estado de la enfermeria y bajas.
+
 
 ## Contrato entre partes (para trabajar en paralelo)
 
