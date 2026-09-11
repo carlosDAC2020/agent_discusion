@@ -11,7 +11,9 @@ Ejecutar de forma standalone para probar:
 from typing import Dict
 
 from mcp.server.fastmcp import FastMCP
+from tavily import TavilyClient
 
+from src.config.settings import TAVILY_API_KEY
 from src.mcp_server.data import (
     HEAD_TO_HEAD,
     INJURIES_AND_SQUAD_STATUS,
@@ -22,6 +24,8 @@ from src.mcp_server.data import (
 )
 
 mcp = FastMCP("football-stats")
+
+_tavily_client = TavilyClient(api_key=TAVILY_API_KEY) if TAVILY_API_KEY else None
 
 
 @mcp.tool()
@@ -180,6 +184,48 @@ def get_injuries_or_squad_status(team: str) -> dict:
             "error": f"Equipo '{team}' no encontrado. Use 'barcelona' o 'real_madrid'."
         }
     return INJURIES_AND_SQUAD_STATUS[key]
+
+
+@mcp.tool()
+def search_web(query: str) -> dict:
+    """Busca informacion actualizada en internet (noticias, resultados recientes,
+    datos que no esten en la base de datos interna del servidor).
+
+    Usa esta tool solo cuando la pregunta requiera informacion que las demas
+    tools (stats internas) no cubren, por ejemplo noticias muy recientes,
+    resultados de partidos de esta misma semana, fichajes, declaraciones, etc.
+
+    Args:
+        query: Consulta de busqueda en lenguaje natural, ej.
+               "ultimo resultado Real Madrid vs Barcelona 2026".
+
+    Returns:
+        Diccionario con una lista de resultados (titulo, url, contenido resumido)
+        o un dict con 'error' si la busqueda no esta disponible/configurada.
+    """
+    if _tavily_client is None:
+        return {
+            "error": (
+                "Busqueda web no disponible: falta configurar TAVILY_API_KEY en el .env "
+                "(https://tavily.com, tiene tier gratuito)."
+            )
+        }
+    try:
+        response = _tavily_client.search(query=query, max_results=5)
+    except Exception as exc:
+        return {"error": f"Fallo la busqueda web: {exc}"}
+
+    return {
+        "query": query,
+        "results": [
+            {
+                "titulo": r.get("title"),
+                "url": r.get("url"),
+                "contenido": r.get("content"),
+            }
+            for r in response.get("results", [])
+        ],
+    }
 
 
 if __name__ == "__main__":

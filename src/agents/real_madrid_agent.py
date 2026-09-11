@@ -4,6 +4,7 @@ Responsabilidad del Dev 2: afinar esta personalidad/argumentario.
 """
 
 from src.agents.base_agent import build_reactive_agent
+from src.config.settings import MODE_MCP, STYLE_DEBATE
 
 TEAM_NAME = "real_madrid"
 
@@ -27,5 +28,5 @@ Reglas de comportamiento:
 """
 
 
-def get_agent(tools: list):
-    return build_reactive_agent(SYSTEM_PROMPT, tools)
+def get_agent(tools: list, mode: str = MODE_MCP, style: str = STYLE_DEBATE):
+    return build_reactive_agent(SYSTEM_PROMPT, tools, mode=mode, style=style)
