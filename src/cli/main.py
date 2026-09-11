@@ -4,6 +4,8 @@ Responsabilidad del Dev 1: UX de la CLI y orquestacion end-to-end.
 """
 
 import asyncio
+import os
+import sys
 
 import typer
 from rich.console import Console
@@ -11,6 +13,13 @@ from rich.panel import Panel
 
 from src.orchestrator.graph import build_debate_graph
 from src.orchestrator.state import initial_state
+
+if sys.platform == "win32":
+    # La consola de Windows suele usar un codepage (ej. 850) que rompe los
+    # acentos/enies al imprimir UTF-8. Forzamos UTF-8 para que se vean bien.
+    os.system("chcp 65001 > NUL")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 app = typer.Typer(add_completion=False, help="Debate de agentes Barcelona vs Real Madrid.")
 console = Console()
