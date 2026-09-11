@@ -64,23 +64,61 @@ def _extract_tool_calls(messages: list) -> List[Dict[str, Any]]:
     return calls
 
 
+def _team_label(team_key: str) -> str:
+    return "FC Barcelona" if team_key == BARCELONA else "Real Madrid"
+
+
 def _format_context(question: str, messages: List[Dict[str, Any]], style: str) -> str:
     if style == STYLE_ANSWER or not messages:
         return f"Pregunta del usuario: {question}"
 
     lines = [f"Pregunta del usuario: {question}", "\nDebate hasta ahora:"]
     for m in messages:
-        equipo = "FC Barcelona" if m["team"] == BARCELONA else "Real Madrid"
-        lines.append(f"- {equipo}: {m['content']}")
-    lines.append("\nResponde ahora, considerando lo dicho por el rival si corresponde.")
+        lines.append(f"- {_team_label(m['team'])}: {m['content']}")
+
+    # Destacamos aparte el ultimo mensaje del rival: es lo que este turno
+    # tiene que atacar directamente (refutar o complementar), no solo "tener
+    # en cuenta" el historial completo en general.
+    last = messages[-1]
+    lines.append(
+        f"\nLo ULTIMO que dijo {_team_label(last['team'])} (tu rival en este turno) fue:\n"
+        f'"{last["content"]}"\n'
+        "\nTu respuesta tiene que partir directamente de ese ultimo mensaje: o lo "
+        "refutas con un contraargumento concreto, o lo complementas con un dato/angulo "
+        "nuevo que termine reforzando tu postura. No lo ignores ni respondas como si "
+        "fuera la primera intervencion del debate."
+    )
     return "\n".join(lines)
+
+
+async def _invoke_agent_with_retry(agent, payload: dict, max_attempts: int = 2):
+    """Invoca al agente reintentando si devuelve texto vacio.
+
+    Algunos proveedores (Gemini en particular) a veces terminan un turno del
+    ReAct loop sin texto final (hiccup transitorio). Reintentamos una vez
+    antes de rendirnos.
+    """
+    result: dict = {"messages": []}
+    reply = ""
+    for _ in range(max_attempts):
+        result = await agent.ainvoke(payload)
+        reply = _extract_text(result["messages"][-1].content)
+        if reply.strip():
+            break
+    return result, reply
 
 
 def _make_node(team_key: str, agent):
     async def node(state: DebateState):
         context = _format_context(state["question"], state["messages"], state["style"])
-        result = await agent.ainvoke({"messages": [{"role": "user", "content": context}]})
-        reply = _extract_text(result["messages"][-1].content)
+        result, reply = await _invoke_agent_with_retry(
+            agent, {"messages": [{"role": "user", "content": context}]}
+        )
+        if not reply.strip():
+            reply = (
+                "(Este equipo no genero una respuesta esta vez -posible limite "
+                "transitorio del modelo-. Intenta la pregunta de nuevo.)"
+            )
         tool_calls = _extract_tool_calls(result["messages"])
         return {
             "messages": state["messages"]

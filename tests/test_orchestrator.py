@@ -106,6 +106,17 @@ def test_format_context_in_debate_style_includes_rival_messages():
     assert "Debate hasta ahora" in context
 
 
+def test_format_context_in_debate_style_calls_out_last_rival_message():
+    messages = [
+        {"team": BARCELONA, "content": "Primer punto del Barca"},
+        {"team": REAL_MADRID, "content": "Respuesta del Madrid"},
+    ]
+    context = _format_context("¿Quien gana?", messages, STYLE_DEBATE)
+    assert "Lo ULTIMO que dijo Real Madrid" in context
+    assert '"Respuesta del Madrid"' in context
+    assert "refutas" in context or "refuta" in context
+
+
 def test_format_context_in_answer_style_hides_rival_messages():
     messages = [{"team": BARCELONA, "content": "Vamos Barca"}]
     context = _format_context("¿Quien gana?", messages, STYLE_ANSWER)
@@ -159,3 +170,45 @@ def test_make_node_attaches_tool_trace_to_message():
     assert new_msg["tool_calls"] == [
         {"tool": "get_team_stats", "args": {"team": "barcelona"}, "result": "datos"}
     ]
+
+
+def _base_state():
+    return {
+        "question": "¿Quien gana?",
+        "turn_order": [BARCELONA, REAL_MADRID],
+        "turns_taken": 0,
+        "max_turns": 2,
+        "style": STYLE_DEBATE,
+        "messages": [],
+    }
+
+
+def test_make_node_retries_once_on_empty_reply():
+    class FlakyAgent:
+        def __init__(self):
+            self.calls = 0
+
+        async def ainvoke(self, _input):
+            self.calls += 1
+            content = "" if self.calls == 1 else "Respuesta despues de reintentar"
+            return {"messages": [SimpleNamespace(content=content, tool_calls=None)]}
+
+    agent = FlakyAgent()
+    node = _make_node(BARCELONA, agent)
+
+    update = asyncio.run(node(_base_state()))
+
+    assert agent.calls == 2
+    assert update["messages"][-1]["content"] == "Respuesta despues de reintentar"
+
+
+def test_make_node_falls_back_to_notice_when_still_empty_after_retry():
+    class AlwaysEmptyAgent:
+        async def ainvoke(self, _input):
+            return {"messages": [SimpleNamespace(content="", tool_calls=None)]}
+
+    node = _make_node(BARCELONA, AlwaysEmptyAgent())
+
+    update = asyncio.run(node(_base_state()))
+
+    assert "no genero una respuesta" in update["messages"][-1]["content"]
