@@ -25,6 +25,25 @@ class DebateState(TypedDict):
     messages: List[Dict[str, str]]
 
 
+def _extract_text(content) -> str:
+    """Normaliza el content de un AIMessage a texto plano.
+
+    Algunos proveedores (ej. Gemini) devuelven una lista de bloques
+    (`[{"type": "text", "text": "..."}, ...]`) en vez de un string simple.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(content)
+
+
 def _format_context(question: str, messages: List[Dict[str, str]]) -> str:
     lines = [f"Pregunta del usuario: {question}"]
     if messages:
