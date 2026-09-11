@@ -7,13 +7,17 @@ orden correcto y termine al llegar a max_turns.
 import asyncio
 from types import SimpleNamespace
 
+from langchain_core.messages import ToolMessage
 from langgraph.graph import END, START, StateGraph
 
+from src.config.settings import STYLE_ANSWER, STYLE_DEBATE
 from src.orchestrator.graph import (
     BARCELONA,
     REAL_MADRID,
     DebateState,
     _entry_router,
+    _extract_tool_calls,
+    _format_context,
     _make_node,
     _next_router,
 )
@@ -92,3 +96,66 @@ def test_initial_state_turn_order_is_a_permutation_of_both_teams():
     assert state["max_turns"] == 6
     assert state["turns_taken"] == 0
     assert state["messages"] == []
+    assert state["style"] == STYLE_DEBATE
+
+
+def test_format_context_in_debate_style_includes_rival_messages():
+    messages = [{"team": BARCELONA, "content": "Vamos Barca"}]
+    context = _format_context("¿Quien gana?", messages, STYLE_DEBATE)
+    assert "Vamos Barca" in context
+    assert "Debate hasta ahora" in context
+
+
+def test_format_context_in_answer_style_hides_rival_messages():
+    messages = [{"team": BARCELONA, "content": "Vamos Barca"}]
+    context = _format_context("¿Quien gana?", messages, STYLE_ANSWER)
+    assert "Vamos Barca" not in context
+    assert "Debate hasta ahora" not in context
+
+
+def test_extract_tool_calls_pairs_ai_tool_calls_with_tool_messages():
+    ai_msg = SimpleNamespace(
+        tool_calls=[{"id": "call_1", "name": "get_team_stats", "args": {"team": "barcelona"}}]
+    )
+    tool_msg = ToolMessage(content="{'titulos_liga': 27}", name="get_team_stats", tool_call_id="call_1")
+    final_msg = SimpleNamespace(content="Respuesta final", tool_calls=None)
+
+    trace = _extract_tool_calls([ai_msg, tool_msg, final_msg])
+
+    assert trace == [
+        {
+            "tool": "get_team_stats",
+            "args": {"team": "barcelona"},
+            "result": "{'titulos_liga': 27}",
+        }
+    ]
+
+
+def test_make_node_attaches_tool_trace_to_message():
+    ai_msg = SimpleNamespace(
+        tool_calls=[{"id": "call_1", "name": "get_team_stats", "args": {"team": "barcelona"}}]
+    )
+    tool_msg = ToolMessage(content="datos", name="get_team_stats", tool_call_id="call_1")
+    final_msg = SimpleNamespace(content="Respuesta final", tool_calls=None)
+
+    class TracedAgent:
+        async def ainvoke(self, _input):
+            return {"messages": [ai_msg, tool_msg, final_msg]}
+
+    node = _make_node(BARCELONA, TracedAgent())
+    state = {
+        "question": "¿Quien gana?",
+        "turn_order": [BARCELONA, REAL_MADRID],
+        "turns_taken": 0,
+        "max_turns": 2,
+        "style": STYLE_DEBATE,
+        "messages": [],
+    }
+
+    update = asyncio.run(node(state))
+
+    new_msg = update["messages"][-1]
+    assert new_msg["content"] == "Respuesta final"
+    assert new_msg["tool_calls"] == [
+        {"tool": "get_team_stats", "args": {"team": "barcelona"}, "result": "datos"}
+    ]

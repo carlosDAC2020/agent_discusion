@@ -6,8 +6,10 @@ luego se respeta el orden) y parametros de la sesion.
 
 import random
 
+from src.config.settings import STYLE_DEBATE
 
-def initial_state(question: str, max_rounds: int = 1) -> dict:
+
+def initial_state(question: str, max_rounds: int = 1, style: str = STYLE_DEBATE) -> dict:
     """Crea el estado inicial para el grafo de debate.
 
     El primer equipo en responder se elige al azar; a partir de ahi se
@@ -20,5 +22,6 @@ def initial_state(question: str, max_rounds: int = 1) -> dict:
         "turn_order": teams,
         "turns_taken": 0,
         "max_turns": max_rounds * 2,
+        "style": style,
         "messages": [],
     }
