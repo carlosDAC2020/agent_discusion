@@ -17,30 +17,20 @@ completo.
 
 ## Checklist
 
-- [ ] Instalar dependencias y probar el servidor de forma standalone:
+- [x] Instalar dependencias y probar el servidor de forma standalone:
       `pip install -r requirements.txt`, luego
-      `python -m src.mcp_server.server` (deberia quedar escuchando por
-      stdio sin errores; para probarlo integrado, usa
-      `python main.py ask "..."` desde la raiz del repo).
-- [ ] Revisar/ampliar `data.py`:
-  - Completar plantillas de jugadores y equipos (mas jugadores, datos
-    mas realistas o actualizados).
-  - Opcional: reemplazar el diccionario mock por una integracion con una
-    API real de estadisticas de futbol (ej. football-data.org,
-    API-Football), manteniendo la misma forma de retorno para no romper
-    a Dev 2.
-- [ ] Revisar/ampliar `server.py`:
-  - Cada tool debe tener un docstring claro (se usa como descripcion
-    para el LLM) y manejar el caso de "no encontrado" sin lanzar
-    excepciones no controladas.
-  - Agregar nuevas tools si Dev 2 las pide (ej. `get_next_match`,
-    `get_injuries`), documentando nombre, argumentos y forma del
-    resultado en `docs/TASKS.md`.
-- [ ] Si cambias la forma (shape) de la respuesta de una tool existente,
-      avisa a Dev 2 — el prompt del agente puede depender de esos
-      campos.
-- [ ] Opcional: agregar cache simple si se conecta a una API externa
-      real, para no golpear rate limits durante el debate.
+      `python -m src.mcp_server.server` (probado standalone y via MultiServerMCPClient).
+- [x] Revisar/ampliar `data.py`:
+  - Completar plantillas de jugadores y equipos (20 jugadores clave, datos
+    reales de temporada 2024-2025, palmares y balance historico).
+- [x] Revisar/ampliar `server.py`:
+  - Cada tool tiene un docstring detallado y maneja el caso de "no encontrado"
+    sin lanzar excepciones no controladas. Soporta busqueda flexible y alias.
+  - Nuevas tools agregadas y documentadas en `docs/TASKS.md`:
+    `get_head_to_head_summary`, `get_trophies_comparison`, `get_injuries_or_squad_status`.
+- [x] Mantener retrocompatibilidad de la forma (shape) de las respuestas
+      existentes para no romper a Dev 2.
+- [x] Suite de pruebas unitarias implementada en `tests/test_mcp_server.py`.
 
 ## Contrato con los demas devs
 
