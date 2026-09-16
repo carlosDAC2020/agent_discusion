@@ -67,24 +67,34 @@ docs(tasks): actualiza reparto de fase 2
    dueño del área afectada, ver `CODEOWNERS` abajo). Excepción: cambios
    triviales de docs/typo pueden autoaprobarse si no hay nadie disponible
    y se anota el motivo en el PR.
-5. CI (`pytest` vía GitHub Actions, ver `.github/workflows/ci.yml`) debe
-   pasar en verde.
+5. CI debe pasar en verde: tests (`.github/workflows/ci.yml`), lint
+   (`.github/workflows/lint.yml`) y escaneo de secretos
+   (`.github/workflows/secret-scan.yml`).
 6. Estrategia de merge: **squash and merge** — el mensaje del squash debe
    quedar en formato Conventional Commits (GitHub lo prellena con el
    título del PR). Mantiene el historial de `main` lineal y legible.
 7. Borrar la rama al mergear.
 
-### Reglas de protección de `main` (a configurar por un admin del repo)
+### Reglas de protección de `main` (a configurar por el owner del repo)
 
-Este checkout tiene permiso `WRITE`, no `ADMIN`, así que estas reglas no
-se pueden activar por API desde aquí — quedan documentadas para que
-`carlosDAC2020` las active en *Settings → Branches → Branch protection
-rules* para `main`:
+Este checkout tiene permiso `WRITE`, no `ADMIN`, así que las reglas de
+protección de rama, el borrado automático de ramas al mergear y la
+invitación de colaboradores no se pueden hacer por API desde aquí.
+Pasos exactos para `carlosDAC2020` (owner) en
+[`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md).
 
-- [ ] Require a pull request before merging (mínimo 1 aprobación).
-- [ ] Require status checks to pass before merging (`ci / tests`).
-- [ ] No permitir force-push ni borrado de `main`.
-- [ ] Require branches to be up to date before merging.
+## Automatizaciones (GitHub Actions)
+
+| Workflow | Cuándo corre | Qué hace |
+|---|---|---|
+| `ci.yml` | PR/push a `main` | Corre `pytest`. |
+| `lint.yml` | PR/push a `main` | Corre `ruff check .` (config en `ruff.toml`) — enfocado a bugs reales (imports/nombres sin definir, errores de sintaxis), no a estilo. |
+| `secret-scan.yml` | PR/push a `main` | Corre `gitleaks` para detectar API keys / tokens quemados en el diff. |
+| `stale.yml` | Cron semanal (lunes) | Marca issues/PRs sin actividad en 21 días como `stale` y los cierra a los 7 días si nadie responde. |
+| `branch-cleanup.yml` | Cron semanal (lunes) | Borra ramas remotas cuyo contenido ya está mergeado en `main` y que no tienen un PR abierto — evita que se acumulen ramas olvidadas. Se puede disparar manualmente desde la pestaña *Actions* (`workflow_dispatch`). |
+
+Todos se pueden disparar manualmente desde la pestaña *Actions* del repo
+si no se quiere esperar al cron.
 
 ## Issues y labels
 
