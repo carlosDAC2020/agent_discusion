@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   delete-merged-branches:
@@ -16,18 +17,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Borrar ramas remotas ya mergeadas a main
+      - name: Borrar ramas de PRs ya mergeados
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           git fetch origin --prune
 
-          DEFAULT_BRANCH="main"
           PROTECTED_REGEX="^(main|master|develop)$"
 
-          for branch in $(git branch -r --merged "origin/$DEFAULT_BRANCH" | sed 's/origin\///' | grep -v '\->' | grep -v '^HEAD$'); do
+          # Solo se borran ramas cuyo PR ya fue mergeado (no cualquier
+          # rama cuyo commit sea ancestro de main: eso incluiria ramas
+          # nuevas recien creadas desde main que todavia no tienen commits
+          # propios, como las de feature en progreso).
+          gh pr list --state merged --limit 200 --json headRefName --jq '.[].headRefName' | sort -u | while read -r branch; do
+            [ -z "$branch" ] && continue
+
             if echo "$branch" | grep -Eq "$PROTECTED_REGEX"; then
+              continue
+            fi
+
+            if ! git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
               continue
             fi
 
@@ -37,6 +47,6 @@ jobs:
               continue
             fi
 
-            echo "Borrando rama ya mergeada: $branch"
+            echo "Borrando rama de PR ya mergeado: $branch"
             git push origin --delete "$branch" || true
           done

@@ -91,7 +91,7 @@ Pasos exactos para `carlosDAC2020` (owner) en
 | `lint.yml` | PR/push a `main` | Corre `ruff check .` (config en `ruff.toml`) — enfocado a bugs reales (imports/nombres sin definir, errores de sintaxis), no a estilo. |
 | `secret-scan.yml` | PR/push a `main` | Corre `gitleaks` para detectar API keys / tokens quemados en el diff. |
 | `stale.yml` | Cron semanal (lunes) | Marca issues/PRs sin actividad en 21 días como `stale` y los cierra a los 7 días si nadie responde. |
-| `branch-cleanup.yml` | Cron semanal (lunes) | Borra ramas remotas cuyo contenido ya está mergeado en `main` y que no tienen un PR abierto — evita que se acumulen ramas olvidadas. Se puede disparar manualmente desde la pestaña *Actions* (`workflow_dispatch`). |
+| `branch-cleanup.yml` | Cron semanal (lunes) | Borra las ramas de PRs ya mergeados que sigan existiendo en el remoto — evita que se acumulen ramas olvidadas. No toca ramas sin PR mergeado (p. ej. una rama de feature recién creada), así que no borra trabajo en progreso. Se puede disparar manualmente desde la pestaña *Actions* (`workflow_dispatch`). |
 
 Todos se pueden disparar manualmente desde la pestaña *Actions* del repo
 si no se quiere esperar al cron.
