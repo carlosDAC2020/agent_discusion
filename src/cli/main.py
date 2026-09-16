@@ -162,15 +162,26 @@ def _export_debate(question: str, result: dict, path: Path) -> None:
 
 
 def _resolve_publisher(publish_to: Optional[str]) -> Optional[DebatePublisher]:
-    """Valida el nombre de plataforma ANTES de correr el debate (para no
-    gastar llamadas al modelo si el usuario tipeo mal el nombre)."""
+    """Valida plataforma y credenciales ANTES de correr el debate (para no
+    gastar llamadas al modelo si el usuario tipeo mal el nombre, o si le
+    faltan credenciales de esa red social)."""
     if publish_to is None:
         return None
     try:
-        return get_publisher(publish_to)
+        publisher = get_publisher(publish_to)
     except ValueError as exc:
         console.print(Panel(str(exc), title="Plataforma invalida", border_style="red"))
         raise typer.Exit(code=1) from exc
+
+    try:
+        publisher.ensure_ready()
+    except PublishError as exc:
+        console.print(
+            Panel(str(exc), title=f"No se puede publicar en {publisher.name}", border_style="red")
+        )
+        raise typer.Exit(code=1) from exc
+
+    return publisher
 
 
 def _publish_debate(publisher: DebatePublisher, question: str, mode: str, style: str, result: dict) -> None:

@@ -33,3 +33,13 @@ class DebatePublisher(ABC):
         excepciones de bajo nivel del cliente HTTP) ante cualquier fallo.
         """
         raise NotImplementedError
+
+    def ensure_ready(self) -> None:
+        """Valida credenciales/config antes de correr el debate.
+
+        El CLI llama esto ANTES de invocar al modelo, para no gastar
+        llamadas al LLM/tools si el publisher no va a poder publicar (p.ej.
+        credenciales faltantes). Default: no-op; cada publisher sobreescribe
+        si tiene algo que validar. Debe lanzar `PublishError` si algo falta.
+        """
+        return None

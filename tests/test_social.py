@@ -74,6 +74,17 @@ def test_telegram_publisher_sin_credenciales_da_publish_error():
         publisher.publish(debate)
 
 
+def test_telegram_publisher_ensure_ready_sin_credenciales_da_publish_error():
+    publisher = TelegramPublisher(bot_token="", chat_id="")
+    with pytest.raises(PublishError, match="Faltan credenciales"):
+        publisher.ensure_ready()
+
+
+def test_telegram_publisher_ensure_ready_con_credenciales_no_lanza():
+    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    assert publisher.ensure_ready() is None
+
+
 def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
     debate = Debate(
         question="Quien tiene mejor delantera?",
@@ -87,7 +98,10 @@ def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
     publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
 
     responses = [_fake_response(1), _fake_response(2), _fake_response(3)]
-    with patch("src.social.telegram_publisher.requests.post", side_effect=responses) as post:
+    with (
+        patch("src.social.telegram_publisher.requests.post", side_effect=responses) as post,
+        patch("src.social.telegram_publisher.time.sleep"),
+    ):
         result = publisher.publish(debate)
 
     assert result.platform == "telegram"
@@ -119,3 +133,49 @@ def test_telegram_publisher_error_de_api_da_publish_error():
     with patch("src.social.telegram_publisher.requests.post", return_value=resp):
         with pytest.raises(PublishError, match="chat not found"):
             publisher.publish(debate)
+
+
+def _rate_limited_response(retry_after: int = 2):
+    resp = Mock()
+    resp.ok = False
+    resp.status_code = 429
+    resp.json.return_value = {
+        "ok": False,
+        "error_code": 429,
+        "description": "Too Many Requests",
+        "parameters": {"retry_after": retry_after},
+    }
+    return resp
+
+
+def test_telegram_publisher_reintenta_tras_rate_limit_429():
+    debate = Debate(question="q", mode="mcp", style="debate", turns=[])
+    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+
+    responses = [_rate_limited_response(retry_after=2), _fake_response(1)]
+    with (
+        patch("src.social.telegram_publisher.requests.post", side_effect=responses) as post,
+        patch("src.social.telegram_publisher.time.sleep") as sleep_mock,
+    ):
+        result = publisher.publish(debate)
+
+    assert result.posted == 1
+    assert post.call_count == 2
+    sleep_mock.assert_any_call(2)
+
+
+def test_telegram_publisher_rate_limit_persistente_agota_reintentos():
+    debate = Debate(question="q", mode="mcp", style="debate", turns=[])
+    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+
+    with (
+        patch(
+            "src.social.telegram_publisher.requests.post",
+            return_value=_rate_limited_response(),
+        ) as post,
+        patch("src.social.telegram_publisher.time.sleep"),
+    ):
+        with pytest.raises(PublishError, match="rate-limit"):
+            publisher.publish(debate)
+
+    assert post.call_count == 3
