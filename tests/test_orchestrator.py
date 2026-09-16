@@ -112,7 +112,7 @@ def test_format_context_in_debate_style_calls_out_last_rival_message():
         {"team": REAL_MADRID, "content": "Respuesta del Madrid"},
     ]
     context = _format_context("¿Quien gana?", messages, STYLE_DEBATE)
-    assert "Lo ULTIMO que dijo Real Madrid" in context
+    assert "Lo ULTIMO que dijo Paco" in context
     assert '"Respuesta del Madrid"' in context
     assert "refutas" in context or "refuta" in context
 

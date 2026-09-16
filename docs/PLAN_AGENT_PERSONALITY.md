@@ -130,7 +130,55 @@ alucina mas de la cuenta, bajar a 0.7-0.8 antes de abrir el PR.
   en el español coloquial de aficionados (o se explican solas en contexto),
   nunca frases largas 100% en catalán.
 
-## 6. Plan de commits
+## 6. Extension de alcance (decidido con Carlos, post-implementacion inicial)
+
+Ademas de lo anterior, se agregaron dos features pedidas directamente:
+
+1. **Nombres propios en vez de nombre de equipo**: `DISPLAY_NAME` en cada
+   agente (`Josep` para Barcelona, `Paco` para Real Madrid) y el
+   `SYSTEM_PROMPT` de cada uno ahora se presenta con ese nombre en vez de
+   "Culer IA"/"Merengue IA". El label que muestra la CLI (`TEAM_LABELS` en
+   `src/cli/main.py`) y el que arma el orquestador (`_team_label` en
+   `src/orchestrator/graph.py`) pasan a leer `DISPLAY_NAME` de cada modulo
+   de agente en vez de tener "FC Barcelona"/"Real Madrid" hardcodeado.
+2. **Streaming en tiempo real**: la CLI (`_run_debate` en
+   `src/cli/main.py`) pasa de `graph.ainvoke(state)` (esperar todo el
+   debate y recien ahi mostrarlo) a `graph.astream_events(state)`, con un
+   panel `rich.live.Live` por turno que se va llenando token a token (y con
+   las llamadas a tools apareciendo arriba del texto a medida que ocurren),
+   para dar trazabilidad real de como se genera cada respuesta.
+
+**Nota de alcance**: `src/cli/main.py` y `src/orchestrator/graph.py` estan
+formalmente asignados a Dev 1 en `docs/TASKS.md`, no a Dev 2 (agentes). Se
+decidio con Carlos (owner, y quien tambien lleva Dev 1 en este proyecto)
+implementarlo en esta misma rama para no bloquear el avance, mencionandolo
+explicitamente aqui y en el PR para que quede trazado. `_team_label`
+cambia de logica (lee `DISPLAY_NAME` en vez de un `if` hardcodeado) pero el
+contrato de datos (`DebateState`, forma de `messages`) no cambia — los
+tests existentes de `tests/test_orchestrator.py` siguen validos porque
+siguen usando `_make_node`/`agent.ainvoke` tal cual (el streaming se agrega
+solo en la capa de CLI, no en el grafo). Se actualizo un test que
+hardcodeaba el label viejo ("Real Madrid" -> "Paco").
+
+**Detalle tecnico de la implementacion de streaming**: se usa
+`graph.astream_events(state, version="v2")` en vez de `graph.ainvoke`.
+Los eventos `on_chat_model_stream`/`on_tool_start` internos del agente
+ReAct no traen el nombre de nuestro nodo externo (`barcelona`/
+`real_madrid`) en `metadata.langgraph_node` -viene "agent"/"tools", que es
+el nombre interno del grafo de `create_react_agent`-, asi que el turno
+activo se rastrea con los eventos `on_chain_start`/`on_chain_end` del nodo
+externo (que si vienen con `name` = `"barcelona"`/`"real_madrid"`), ya que
+la ejecucion es estrictamente secuencial entre ambos equipos.
+
+**Bug encontrado y corregido durante la verificacion manual**: el
+`output` de un evento `on_chain_end` de un nodo es solo lo que esa funcion
+de nodo retorna (`{"messages": [...], "turns_taken": N}`), no el estado
+completo del grafo como si devuelve `graph.ainvoke`. Al usarlo directo
+para `--export`, `turn_order` quedaba `null` en el archivo exportado. Se
+corrigio mergeando ese resultado parcial con el estado inicial
+(`{**state, **final_result, ...}`) antes de exportar.
+
+## 7. Plan de commits
 
 1. Este documento de plan.
 2. `barcelona_agent.py`: nuevo bloque de dialecto/pique culé.

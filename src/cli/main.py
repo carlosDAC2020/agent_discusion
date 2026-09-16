@@ -14,10 +14,15 @@ from typing import List, Optional
 import questionary
 import typer
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 
+from src.agents.barcelona_agent import DISPLAY_NAME as BARCELONA_NAME
+from src.agents.barcelona_agent import TEAM_NAME as BARCELONA
+from src.agents.real_madrid_agent import DISPLAY_NAME as REAL_MADRID_NAME
+from src.agents.real_madrid_agent import TEAM_NAME as REAL_MADRID
 from src.config.settings import MODE_KNOWLEDGE, MODE_MCP, STYLE_ANSWER, STYLE_DEBATE
-from src.orchestrator.graph import build_debate_graph
+from src.orchestrator.graph import _extract_text, build_debate_graph
 from src.orchestrator.state import initial_state
 
 if sys.platform == "win32":
@@ -31,12 +36,12 @@ app = typer.Typer(add_completion=False, help="Debate de agentes Barcelona vs Rea
 console = Console()
 
 TEAM_LABELS = {
-    "barcelona": "FC Barcelona",
-    "real_madrid": "Real Madrid",
+    BARCELONA: BARCELONA_NAME,
+    REAL_MADRID: REAL_MADRID_NAME,
 }
 TEAM_STYLES = {
-    "barcelona": "blue",
-    "real_madrid": "white",
+    BARCELONA: "blue",
+    REAL_MADRID: "white",
 }
 
 EXPORT_HELP = "Exporta el debate a un archivo (.txt o .json). Se agrega al final si ya existe."
@@ -116,13 +121,6 @@ def _resolve_rounds(rounds: Optional[int], style: str) -> int:
     return rounds if rounds is not None else DEFAULT_ROUNDS_BY_STYLE.get(style, 1)
 
 
-def _print_tool_trace(team: str, tool_calls: List[dict]) -> None:
-    equipo = TEAM_LABELS.get(team, team)
-    for call in tool_calls:
-        args_str = ", ".join(f"{k}={v!r}" for k, v in call.get("args", {}).items())
-        console.print(f"[dim]  ↳ {equipo} llamó a [italic]{call['tool']}({args_str})[/italic][/dim]")
-
-
 def _export_debate(question: str, result: dict, path: Path) -> None:
     """Guarda el debate en disco, en texto plano o JSON segun la extension."""
     if path.suffix.lower() == ".json":
@@ -187,9 +185,64 @@ async def _run_debate(
     orden = " -> ".join(TEAM_LABELS[t] for t in state["turn_order"])
     console.print(f"[dim]Orden de turnos (elegido al azar): {orden} | modo={mode} | estilo={style}[/dim]\n")
 
+    # Streaming en vivo: mostramos cada turno token a token (y las tools que
+    # el agente va llamando) a medida que se generan, en vez de esperar a
+    # que termine todo el debate para recien mostrarlo.
+    current_team: Optional[str] = None
+    buffer = ""
+    tool_lines: List[str] = []
+    live: Optional[Live] = None
+    final_result: Optional[dict] = None
+
+    def _panel() -> Panel:
+        body = "\n".join(tool_lines)
+        if body and buffer:
+            body += "\n\n" + buffer
+        elif buffer:
+            body = buffer
+        elif not body:
+            body = "[dim]...[/dim]"
+        return Panel(body, title=TEAM_LABELS[current_team], border_style=TEAM_STYLES.get(current_team, "cyan"))
+
     try:
-        result = await graph.ainvoke(state)
+        async for event in graph.astream_events(state, version="v2"):
+            kind = event["event"]
+            name = event.get("name")
+
+            if kind == "on_chain_start" and name in TEAM_LABELS:
+                current_team = name
+                buffer = ""
+                tool_lines = []
+                live = Live(_panel(), console=console, refresh_per_second=12)
+                live.start()
+
+            elif kind == "on_chat_model_stream" and live is not None:
+                text = _extract_text(event["data"]["chunk"].content)
+                if text:
+                    buffer += text
+                    live.update(_panel())
+
+            elif kind == "on_tool_start" and live is not None:
+                args_str = ", ".join(f"{k}={v!r}" for k, v in (event["data"].get("input") or {}).items())
+                tool_lines.append(f"[dim]↳ llamó a [italic]{name}({args_str})[/italic][/dim]")
+                live.update(_panel())
+
+            elif kind == "on_chain_end" and name in TEAM_LABELS:
+                output = event["data"].get("output")
+                if output:
+                    final_result = output
+                    if not buffer.strip():
+                        msgs = output.get("messages") or []
+                        if msgs:
+                            buffer = msgs[-1].get("content", "")
+                if live is not None:
+                    live.update(_panel())
+                    live.stop()
+                    live = None
+                current_team = None
     except Exception as exc:
+        if live is not None:
+            live.stop()
         console.print(
             Panel(
                 "Ocurrio un error ejecutando el debate. Verifica tu API key "
@@ -202,17 +255,13 @@ async def _run_debate(
         )
         return
 
-    for msg in result["messages"]:
-        team = msg["team"]
-        _print_tool_trace(team, msg.get("tool_calls", []))
-        console.print(
-            Panel(msg["content"], title=TEAM_LABELS.get(team, team), border_style=TEAM_STYLES.get(team, "cyan"))
-        )
-
-    if export is not None:
-        result["mode"] = mode
-        result["style"] = style
-        _export_debate(question, result, export)
+    if export is not None and final_result is not None:
+        # Los eventos de on_chain_end solo traen lo que el nodo retorna
+        # (messages, turns_taken), no el estado completo (a diferencia de
+        # graph.ainvoke): completamos con los campos que vienen del estado
+        # inicial y no cambian durante la ejecucion.
+        export_result = {**state, **final_result, "mode": mode, "style": style}
+        _export_debate(question, export_result, export)
 
 
 @app.command()
