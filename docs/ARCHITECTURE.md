@@ -64,3 +64,34 @@ flowchart TD
 - **Agentes reactivos (ReAct)**: cada agente decide en cada paso si
   necesita una herramienta antes de responder, sin planificacion previa
   compleja, cumpliendo el requisito de "tipo reactivo".
+
+## Publicacion en redes sociales (`src/social/`, Fase 2 — Dev Harold)
+
+El debate ya generado por el orquestador se puede publicar ademas en una
+red social externa, sin tocar `src/orchestrator/` ni `src/agents/`.
+
+- **`DebatePublisher`** (`src/social/base.py`): contrato comun — un
+  metodo `publish(debate: Debate) -> PublishResult`. `Debate`/`DebateTurn`
+  (`src/social/models.py`) son una forma estable y minima del debate,
+  adaptada del dict crudo del orquestador via `debate_from_result(...)`,
+  para que un publisher nunca dependa de la estructura interna del grafo.
+- **`registry.py`**: mapea nombre de plataforma -> clase publisher.
+  Agregar una red social nueva = crear `XPublisher(DebatePublisher)` +
+  una linea en el registry; el CLI no cambia.
+- **Redes evaluadas** (ver discusion completa en el issue #7): se
+  descarto X/Twitter por no tener tier gratuito de escritura desde 2023.
+  Se eligieron 4 candidatas, con distinto estado de implementacion:
+
+  | Plataforma | Estado | Idea |
+  |---|---|---|
+  | Telegram | **Implementado** | Bot API simple (token via @BotFather), un mensaje por turno encadenado con `reply_to_message_id` al turno anterior. |
+  | Reddit | Planeado | `praw`, post inicial + un comentario por turno en cadena de replies. Requiere subreddit propio. |
+  | Discord | Planeado | Webhook de canal, un mensaje por turno. |
+  | Bluesky | Planeado | AT Protocol (`atproto`), alternativa gratuita a X/Twitter. |
+
+  Los publishers "planeados" ya existen como clase (implementan la
+  interfaz) pero `publish()` lanza `NotImplementedError` — la arquitectura
+  esta lista para sumarlos sin rediseño, se implementan cuando toque.
+- **Uso**: `python main.py ask "..." --publish-to telegram` (o el flag
+  equivalente en `chat`). Credenciales en `.env`
+  (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
