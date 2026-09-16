@@ -44,6 +44,29 @@ TEAM_STYLES = {
     REAL_MADRID: "white",
 }
 
+# Frases en lenguaje natural para lo que esta haciendo el agente al llamar
+# cada tool MCP, para no exponerle a alguien no tecnico un nombre de funcion
+# como "get_trophies_comparison()". Si aparece una tool nueva que no esta en
+# este mapa, usamos un mensaje generico como fallback (ver _tool_trace_line).
+TOOL_FRIENDLY_MESSAGES = {
+    "get_team_stats": lambda args: "consultando las estadisticas del equipo...",
+    "get_player_stats": lambda args: f"buscando los numeros de {args.get('player_name', 'el jugador')}...",
+    "compare_players": lambda args: (
+        f"comparando a {args.get('player_a', '?')} contra {args.get('player_b', '?')}..."
+    ),
+    "get_head_to_head": lambda args: "repasando los ultimos clasicos...",
+    "get_head_to_head_summary": lambda args: "sacando el resumen historico del clasico...",
+    "get_trophies_comparison": lambda args: "contando los titulos de cada equipo...",
+    "get_injuries_or_squad_status": lambda args: "revisando la enfermeria del equipo...",
+    "search_web": lambda args: "buscando informacion actualizada en internet...",
+}
+
+
+def _tool_trace_line(tool_name: str, args: dict) -> str:
+    builder = TOOL_FRIENDLY_MESSAGES.get(tool_name)
+    message = builder(args) if builder else "consultando datos..."
+    return f"[dim]↳ {message}[/dim]"
+
 EXPORT_HELP = "Exporta el debate a un archivo (.txt o .json). Se agrega al final si ya existe."
 
 
@@ -223,8 +246,7 @@ async def _run_debate(
                     live.update(_panel())
 
             elif kind == "on_tool_start" and live is not None:
-                args_str = ", ".join(f"{k}={v!r}" for k, v in (event["data"].get("input") or {}).items())
-                tool_lines.append(f"[dim]↳ llamó a [italic]{name}({args_str})[/italic][/dim]")
+                tool_lines.append(_tool_trace_line(name, event["data"].get("input") or {}))
                 live.update(_panel())
 
             elif kind == "on_chain_end" and name in TEAM_LABELS:
