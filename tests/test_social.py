@@ -7,6 +7,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.agents.barcelona_agent import DISPLAY_NAME as BARCELONA_DISPLAY_NAME
+from src.agents.real_madrid_agent import DISPLAY_NAME as REAL_MADRID_DISPLAY_NAME
 from src.social.base import PublishError
 from src.social.models import Debate, DebateTurn, debate_from_result
 from src.social.registry import (
@@ -37,8 +39,10 @@ def test_debate_from_result_adapta_mensajes_del_orquestador():
 
 
 def test_debate_turn_team_label_conoce_ambos_equipos():
-    assert DebateTurn(team="barcelona", content="x").team_label == "FC Barcelona"
-    assert DebateTurn(team="real_madrid", content="x").team_label == "Real Madrid"
+    # Se compara contra DISPLAY_NAME (no un string hardcodeado): si Dev 2
+    # vuelve a cambiar el nombre de presentacion, este test lo sigue.
+    assert DebateTurn(team="barcelona", content="x").team_label == BARCELONA_DISPLAY_NAME
+    assert DebateTurn(team="real_madrid", content="x").team_label == REAL_MADRID_DISPLAY_NAME
     assert DebateTurn(team="otro", content="x").team_label == "otro"
 
 
@@ -179,3 +183,61 @@ def test_telegram_publisher_rate_limit_persistente_agota_reintentos():
             publisher.publish(debate)
 
     assert post.call_count == 3
+
+
+def test_telegram_publisher_usa_html_y_negrita_para_el_equipo():
+    debate = Debate(
+        question="q",
+        mode="mcp",
+        style="debate",
+        turns=[DebateTurn(team="barcelona", content="Vamos Barca")],
+    )
+    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+
+    with (
+        patch(
+            "src.social.telegram_publisher.requests.post",
+            side_effect=[_fake_response(1), _fake_response(2)],
+        ) as post,
+        patch("src.social.telegram_publisher.time.sleep"),
+    ):
+        publisher.publish(debate)
+
+    header_json, turn_json = (c.kwargs["json"] for c in post.call_args_list)
+    assert header_json["parse_mode"] == "HTML"
+    assert turn_json["parse_mode"] == "HTML"
+    assert f"<b>{BARCELONA_DISPLAY_NAME}</b>" in turn_json["text"]
+
+
+def test_telegram_publisher_incluye_traza_de_tools_y_escapa_html():
+    debate = Debate(
+        question="q",
+        mode="mcp",
+        style="debate",
+        turns=[
+            DebateTurn(
+                team="barcelona",
+                content="Lewandowski > Vinicius, sin duda <no debate>",
+                tool_calls=[
+                    {"tool": "compare_players", "args": {"player_a": "A & B", "player_b": "C"}}
+                ],
+            )
+        ],
+    )
+    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+
+    with (
+        patch(
+            "src.social.telegram_publisher.requests.post",
+            side_effect=[_fake_response(1), _fake_response(2)],
+        ) as post,
+        patch("src.social.telegram_publisher.time.sleep"),
+    ):
+        publisher.publish(debate)
+
+    turn_text = post.call_args_list[1].kwargs["json"]["text"]
+    assert "compare_players(" in turn_text
+    assert "A &amp; B" in turn_text
+    # El contenido del agente esta escapado: no debe colarse un tag HTML crudo.
+    assert "<no debate>" not in turn_text
+    assert "&lt;no debate&gt;" in turn_text

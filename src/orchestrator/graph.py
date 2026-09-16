@@ -11,11 +11,15 @@ from langchain_core.messages import ToolMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import END, START, StateGraph
 
+from src.agents.barcelona_agent import DISPLAY_NAME as BARCELONA_DISPLAY_NAME
 from src.agents.barcelona_agent import TEAM_NAME as BARCELONA
 from src.agents.barcelona_agent import get_agent as get_barcelona_agent
+from src.agents.real_madrid_agent import DISPLAY_NAME as REAL_MADRID_DISPLAY_NAME
 from src.agents.real_madrid_agent import TEAM_NAME as REAL_MADRID
 from src.agents.real_madrid_agent import get_agent as get_real_madrid_agent
 from src.config.settings import MCP_SERVER_PARAMS, MODE_MCP, STYLE_ANSWER, STYLE_DEBATE
+
+TEAM_DISPLAY_NAMES = {BARCELONA: BARCELONA_DISPLAY_NAME, REAL_MADRID: REAL_MADRID_DISPLAY_NAME}
 
 
 class DebateState(TypedDict):
@@ -65,7 +69,7 @@ def _extract_tool_calls(messages: list) -> List[Dict[str, Any]]:
 
 
 def _team_label(team_key: str) -> str:
-    return "FC Barcelona" if team_key == BARCELONA else "Real Madrid"
+    return TEAM_DISPLAY_NAMES.get(team_key, team_key)
 
 
 def _format_context(question: str, messages: List[Dict[str, Any]], style: str) -> str:

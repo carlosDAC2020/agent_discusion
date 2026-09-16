@@ -6,6 +6,7 @@ la secuencia de rebates del debate). Requiere que el bot ya este agregado
 como administrador del chat/canal destino.
 """
 
+import html
 import time
 from typing import Optional
 
@@ -13,10 +14,11 @@ import requests
 
 from src.config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from src.social.base import DebatePublisher, PublishError, PublishResult
-from src.social.models import Debate
+from src.social.models import Debate, DebateTurn
 
 _API_BASE = "https://api.telegram.org"
 _MAX_MESSAGE_LEN = 4000  # limite real de Telegram: 4096 caracteres UTF-16
+_MAX_CONTENT_LEN = 3500  # deja margen para el header/traza de tools alrededor
 _TRUNCATED_SUFFIX = "… (truncado)"
 
 # Telegram permite ~1 mensaje/segundo a un mismo chat; nos quedamos un poco
@@ -25,10 +27,23 @@ _MIN_INTERVAL_SECONDS = 1.1
 _MAX_RATE_LIMIT_RETRIES = 3
 
 
-def _clip(text: str) -> str:
-    if len(text) <= _MAX_MESSAGE_LEN:
+def _clip(text: str, max_len: int = _MAX_MESSAGE_LEN) -> str:
+    if len(text) <= max_len:
         return text
-    return text[: _MAX_MESSAGE_LEN - len(_TRUNCATED_SUFFIX)] + _TRUNCATED_SUFFIX
+    return text[: max_len - len(_TRUNCATED_SUFFIX)] + _TRUNCATED_SUFFIX
+
+
+def _escape_html(text: str) -> str:
+    """Escapa para el `parse_mode=HTML` de Telegram (no toca comillas)."""
+    return html.escape(text, quote=False)
+
+
+def _tool_trace_lines(tool_calls: list[dict]) -> list[str]:
+    lines = []
+    for call in tool_calls:
+        args_str = ", ".join(f"{k}={v!r}" for k, v in call.get("args", {}).items())
+        lines.append(f"\U0001f527 {call.get('tool', '?')}({args_str})")
+    return lines
 
 
 class TelegramPublisher(DebatePublisher):
@@ -73,7 +88,7 @@ class TelegramPublisher(DebatePublisher):
     def _send_message(self, text: str, reply_to_message_id: Optional[int] = None) -> int:
         self._check_credentials()
 
-        payload = {"chat_id": self.chat_id, "text": _clip(text)}
+        payload = {"chat_id": self.chat_id, "text": _clip(text), "parse_mode": "HTML"}
         if reply_to_message_id is not None:
             payload["reply_to_message_id"] = reply_to_message_id
 
@@ -101,14 +116,17 @@ class TelegramPublisher(DebatePublisher):
         raise PublishError("No se pudo publicar el mensaje en Telegram (reintentos agotados).")
 
     def _header_text(self, debate: Debate) -> str:
-        return (
-            f"\U0001f5e3 Debate: {debate.question}\n"
-            f"(modo={debate.mode}, estilo={debate.style})"
-        )
+        question = _escape_html(_clip(debate.question, _MAX_CONTENT_LEN))
+        mode = _escape_html(debate.mode)
+        style = _escape_html(debate.style)
+        return f"\U0001f5e3 <b>Debate</b>: {question}\n(modo={mode}, estilo={style})"
 
-    def _turn_text(self, turn) -> str:
+    def _turn_text(self, turn: DebateTurn) -> str:
         emoji = "\U0001f535" if turn.team == "barcelona" else "⚪"
-        return f"{emoji} {turn.team_label}: {turn.content}"
+        lines = [f"{emoji} <b>{_escape_html(turn.team_label)}</b>"]
+        lines.extend(_escape_html(line) for line in _tool_trace_lines(turn.tool_calls))
+        lines.append(_escape_html(_clip(turn.content, _MAX_CONTENT_LEN)))
+        return _clip("\n".join(lines))
 
     def publish(self, debate: Debate) -> PublishResult:
         last_message_id = self._send_message(self._header_text(debate))
