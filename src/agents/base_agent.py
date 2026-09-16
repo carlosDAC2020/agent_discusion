@@ -12,6 +12,7 @@ from src.config.settings import (
     MODE_KNOWLEDGE,
     MODE_MCP,
     MODEL_PROVIDER,
+    MODEL_TEMPERATURE,
     STYLE_ANSWER,
     STYLE_DEBATE,
 )
@@ -65,5 +66,5 @@ def build_reactive_agent(
         style: STYLE_ANSWER (responde solo) o STYLE_DEBATE (debate consciente).
     """
     full_prompt = system_prompt + _MODE_INSTRUCTIONS[mode] + _STYLE_INSTRUCTIONS[style]
-    llm = init_chat_model(MODEL_PROVIDER)
+    llm = init_chat_model(MODEL_PROVIDER, temperature=MODEL_TEMPERATURE)
     return create_react_agent(model=llm, tools=tools, prompt=full_prompt)
