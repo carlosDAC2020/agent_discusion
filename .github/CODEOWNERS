@@ -1,0 +1,15 @@
+# Ver CONTRIBUTING.md para el proceso completo de review.
+# Estos son los dueños sugeridos por área para aprobar PRs (Fase 2).
+
+/src/cli/            @haroldstyven
+/src/orchestrator/   @haroldstyven
+/src/social/         @haroldstyven
+
+/src/voice/          @lastHunter956
+/src/av/             @lastHunter956
+
+/src/agents/         @carlosDAC2020
+
+/src/mcp_server/      @carlosDAC2020 @lastHunter956
+
+/docs/                @haroldstyven @carlosDAC2020 @lastHunter956

@@ -8,8 +8,6 @@ Ejecutar de forma standalone para probar:
     python -m src.mcp_server.server
 """
 
-from typing import Dict
-
 from mcp.server.fastmcp import FastMCP
 from tavily import TavilyClient
 
