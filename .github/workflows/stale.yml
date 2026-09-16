@@ -1,0 +1,29 @@
+name: stale
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 21
+          days-before-close: 7
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"
+          stale-issue-message: >
+            Este issue no ha tenido actividad en 21 dias. Se marca como
+            `stale` y se cerrara en 7 dias si no hay actualizaciones.
+          stale-pr-message: >
+            Este PR no ha tenido actividad en 21 dias. Se marca como
+            `stale` y se cerrara en 7 dias si no hay actualizaciones.
+          exempt-issue-labels: "pinned,security"
+          exempt-pr-labels: "pinned,work-in-progress"
