@@ -9,6 +9,13 @@ load_dotenv()
 
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "google_genai:gemini-3.6-flash")
 
+# Temperatura del modelo: mas alta = respuestas mas creativas/variadas (util
+# para que el dialecto y las pullas de cada agente no suenen repetidas debate
+# tras debate), mas baja = respuestas mas deterministas. Default subido desde
+# el valor por defecto del proveedor (~0.7) para dar mas variedad al modo
+# debate sin volverse incoherente.
+MODEL_TEMPERATURE = float(os.getenv("MODEL_TEMPERATURE", "0.9"))
+
 # API key para la tool de busqueda web (Tavily, https://tavily.com - tier gratuito)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
