@@ -19,6 +19,12 @@ MODEL_TEMPERATURE = float(os.getenv("MODEL_TEMPERATURE", "0.9"))
 # API key para la tool de busqueda web (Tavily, https://tavily.com - tier gratuito)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
+# Credenciales para publicar el debate en Telegram (src/social/telegram_publisher.py).
+# Bot token: se obtiene hablando con @BotFather. Chat id: el chat/canal/grupo
+# destino (el bot debe estar agregado como admin ahi).
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
 # Por defecto usamos el mismo interprete que corre la CLI (sys.executable)
 # en vez de "python" a secas: en Windows ese nombre puede resolver al stub
 # de la Microsoft Store en lugar del interprete real del entorno.

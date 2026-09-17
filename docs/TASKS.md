@@ -73,15 +73,17 @@ mismo para el detalle de las interfaces entre modulos.
 
 Rama: `feature/harold-social-debate` · Label: `dev:harold` `area:social`
 
-- Publicar el debate generado por `src/orchestrator/` en una red social
-  (Reddit, Telegram u otra a definir) — cada turno como mensaje/post,
-  o el debate completo como hilo.
-- Reutilizar el debate ya orquestado, no reimplementar logica de turnos.
-- Definir donde vive la configuracion de credenciales de la red social
-  (token de bot, subreddit/canal) en `.env` / `src/config/settings.py`,
-  siguiendo el mismo patron que las demas API keys.
-- Entregable minimo: comando (`python main.py post` o flag en `ask`/
-  `chat`) que corre un debate y lo publica.
+- [x] Decision de arquitectura (ver `docs/ARCHITECTURE.md#publicacion-en-redes-sociales-srcsocial-fase-2--dev-harold`):
+      interfaz `DebatePublisher` + registry por nombre de plataforma, para
+      poder sumar redes sociales sin tocar CLI ni orquestador.
+- [x] Telegram implementado de punta a punta: `--publish-to telegram` en
+      `ask`/`chat`, un mensaje por turno encadenado con `reply_to_message_id`.
+- [ ] Reddit, Discord y Bluesky: clase publisher creada (cumple la
+      interfaz) pero `publish()` todavia no implementado — fase 2 de esta
+      misma feature, mismo contrato, sin rediseño.
+- Reutiliza el debate ya orquestado, no reimplementa logica de turnos.
+- Credenciales de cada red social en `.env` / `src/config/settings.py`,
+  mismo patron que las demas API keys.
 
 ### Dev Jesus — Debate en audio/video (`src/voice/`)
 
