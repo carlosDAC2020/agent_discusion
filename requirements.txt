@@ -11,3 +11,5 @@ rich>=13.7.0
 questionary>=2.0.0
 python-dotenv>=1.0.0
 pytest>=8.0.0
+pygame>=2.5.0
+
