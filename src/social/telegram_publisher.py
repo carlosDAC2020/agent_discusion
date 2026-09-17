@@ -1,9 +1,12 @@
-"""Publica el debate en un chat/canal de Telegram, turno por turno.
+"""Publica el debate en Telegram con un bot INDEPENDIENTE por equipo.
 
-Cada turno se manda como un mensaje separado, encadenado con
-`reply_to_message_id` al turno anterior (asi el hilo de Telegram refleja
-la secuencia de rebates del debate). Requiere que el bot ya este agregado
-como administrador del chat/canal destino.
+Josep (Barcelona) y Paco (Real Madrid) publican sus propios turnos como
+cuentas de Telegram distintas -no un unico bot narrando ambos lados-, asi
+que la identidad del hablante la da el bot (nombre, foto de perfil) en vez
+de una etiqueta de texto. Ambos bots deben estar agregados como
+administradores del mismo chat/canal. Cada turno se encadena con
+`reply_to_message_id` al anterior (el id de mensaje es valido entre bots
+distintos, ambos escriben en el mismo chat).
 """
 
 import html
@@ -12,17 +15,25 @@ from typing import Optional
 
 import requests
 
-from src.config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from src.agents.barcelona_agent import TEAM_NAME as BARCELONA
+from src.agents.real_madrid_agent import TEAM_NAME as REAL_MADRID
+from src.config.settings import (
+    TELEGRAM_BOT_TOKEN_BARCELONA,
+    TELEGRAM_BOT_TOKEN_REAL_MADRID,
+    TELEGRAM_CHAT_ID,
+)
 from src.social.base import DebatePublisher, PublishError, PublishResult
 from src.social.models import Debate, DebateTurn
 
 _API_BASE = "https://api.telegram.org"
 _MAX_MESSAGE_LEN = 4000  # limite real de Telegram: 4096 caracteres UTF-16
-_MAX_CONTENT_LEN = 3500  # deja margen para el header/traza de tools alrededor
+_MAX_CONTENT_LEN = 3500  # deja margen para la traza de tools alrededor
 _TRUNCATED_SUFFIX = "… (truncado)"
 
-# Telegram permite ~1 mensaje/segundo a un mismo chat; nos quedamos un poco
-# por debajo para no rozar el limite ante debates con muchas rondas.
+# Telegram permite ~1 mensaje/segundo por bot a un mismo chat; nos quedamos
+# un poco por debajo. Es POR BOT (dict), no global: como Josep y Paco son
+# bots distintos, cada uno tiene su propio cupo y no hace falta esperar el
+# turno del otro.
 _MIN_INTERVAL_SECONDS = 1.1
 _MAX_RATE_LIMIT_RETRIES = 3
 
@@ -49,52 +60,60 @@ def _tool_trace_lines(tool_calls: list[dict]) -> list[str]:
 class TelegramPublisher(DebatePublisher):
     name = "telegram"
 
-    def __init__(self, bot_token: Optional[str] = None, chat_id: Optional[str] = None):
+    def __init__(self, bot_tokens: Optional[dict] = None, chat_id: Optional[str] = None):
         # `is None` (no truthiness) a proposito: permite instanciar con
-        # bot_token="" / chat_id="" explicito (p.ej. en tests) sin que
-        # caiga silenciosamente al valor de settings.
-        self.bot_token = TELEGRAM_BOT_TOKEN if bot_token is None else bot_token
+        # valores vacios explicitos en tests sin caer al valor de settings.
+        self.bot_tokens = (
+            {BARCELONA: TELEGRAM_BOT_TOKEN_BARCELONA, REAL_MADRID: TELEGRAM_BOT_TOKEN_REAL_MADRID}
+            if bot_tokens is None
+            else bot_tokens
+        )
         self.chat_id = TELEGRAM_CHAT_ID if chat_id is None else chat_id
-        self._last_sent_at: Optional[float] = None
+        self._last_sent_at: dict[str, float] = {}
+
+    def _missing_credentials(self) -> list[str]:
+        missing = []
+        if not self.chat_id:
+            missing.append("TELEGRAM_CHAT_ID")
+        if not self.bot_tokens.get(BARCELONA):
+            missing.append("TELEGRAM_BOT_TOKEN_BARCELONA")
+        if not self.bot_tokens.get(REAL_MADRID):
+            missing.append("TELEGRAM_BOT_TOKEN_REAL_MADRID")
+        return missing
 
     def _check_credentials(self) -> None:
-        if not self.bot_token or not self.chat_id:
-            raise PublishError(
-                "Faltan credenciales de Telegram: definir TELEGRAM_BOT_TOKEN y "
-                "TELEGRAM_CHAT_ID en tu .env."
-            )
+        missing = self._missing_credentials()
+        if missing:
+            raise PublishError(f"Faltan credenciales de Telegram: definir {', '.join(missing)} en tu .env.")
 
     def ensure_ready(self) -> None:
         """Valida credenciales antes de correr el debate (ver DebatePublisher.ensure_ready)."""
         self._check_credentials()
 
-    def _throttle(self) -> None:
-        if self._last_sent_at is None:
+    def _throttle(self, bot_token: str) -> None:
+        last_sent_at = self._last_sent_at.get(bot_token)
+        if last_sent_at is None:
             return
-        wait = _MIN_INTERVAL_SECONDS - (time.monotonic() - self._last_sent_at)
+        wait = _MIN_INTERVAL_SECONDS - (time.monotonic() - last_sent_at)
         if wait > 0:
             time.sleep(wait)
 
-    def _post(self, payload: dict) -> requests.Response:
+    def _post(self, bot_token: str, payload: dict) -> requests.Response:
         try:
-            return requests.post(
-                f"{_API_BASE}/bot{self.bot_token}/sendMessage", json=payload, timeout=15
-            )
+            return requests.post(f"{_API_BASE}/bot{bot_token}/sendMessage", json=payload, timeout=15)
         except requests.RequestException as exc:
             raise PublishError(f"No se pudo conectar con la API de Telegram: {exc}") from exc
         finally:
-            self._last_sent_at = time.monotonic()
+            self._last_sent_at[bot_token] = time.monotonic()
 
-    def _send_message(self, text: str, reply_to_message_id: Optional[int] = None) -> int:
-        self._check_credentials()
-
+    def _send_message(self, bot_token: str, text: str, reply_to_message_id: Optional[int] = None) -> int:
         payload = {"chat_id": self.chat_id, "text": _clip(text), "parse_mode": "HTML"}
         if reply_to_message_id is not None:
             payload["reply_to_message_id"] = reply_to_message_id
 
         for attempt in range(1, _MAX_RATE_LIMIT_RETRIES + 1):
-            self._throttle()
-            response = self._post(payload)
+            self._throttle(bot_token)
+            response = self._post(bot_token, payload)
             data = response.json()
 
             retry_after = (data.get("parameters") or {}).get("retry_after")
@@ -122,19 +141,23 @@ class TelegramPublisher(DebatePublisher):
         return f"\U0001f5e3 <b>Debate</b>: {question}\n(modo={mode}, estilo={style})"
 
     def _turn_text(self, turn: DebateTurn) -> str:
-        emoji = "\U0001f535" if turn.team == "barcelona" else "⚪"
-        lines = [f"{emoji} <b>{_escape_html(turn.team_label)}</b>"]
-        lines.extend(_escape_html(line) for line in _tool_trace_lines(turn.tool_calls))
+        # Sin nombre de equipo en negrita: la identidad la da el bot que
+        # publica (nombre + foto de perfil en Telegram), no una etiqueta.
+        lines = [_escape_html(line) for line in _tool_trace_lines(turn.tool_calls)]
         lines.append(_escape_html(_clip(turn.content, _MAX_CONTENT_LEN)))
         return _clip("\n".join(lines))
 
     def publish(self, debate: Debate) -> PublishResult:
-        last_message_id = self._send_message(self._header_text(debate))
+        self.ensure_ready()
+
+        header_team = debate.turns[0].team if debate.turns else BARCELONA
+        header_bot = self.bot_tokens[header_team]
+        last_message_id = self._send_message(header_bot, self._header_text(debate))
         references = [str(last_message_id)]
 
         for turn in debate.turns:
             last_message_id = self._send_message(
-                self._turn_text(turn), reply_to_message_id=last_message_id
+                self.bot_tokens[turn.team], self._turn_text(turn), reply_to_message_id=last_message_id
             )
             references.append(str(last_message_id))
 

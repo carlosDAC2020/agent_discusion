@@ -72,25 +72,31 @@ def _fake_response(message_id: int):
     return resp
 
 
-def test_telegram_publisher_sin_credenciales_da_publish_error():
-    publisher = TelegramPublisher(bot_token="", chat_id="")
+_BOT_TOKENS = {"barcelona": "TOKEN_JOSEP", "real_madrid": "TOKEN_PACO"}
+
+
+def test_telegram_publisher_sin_credenciales_lista_lo_que_falta():
+    publisher = TelegramPublisher(bot_tokens={"barcelona": "", "real_madrid": ""}, chat_id="")
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    with pytest.raises(PublishError, match="Faltan credenciales"):
+    with pytest.raises(PublishError, match="TELEGRAM_CHAT_ID"):
         publisher.publish(debate)
 
 
-def test_telegram_publisher_ensure_ready_sin_credenciales_da_publish_error():
-    publisher = TelegramPublisher(bot_token="", chat_id="")
-    with pytest.raises(PublishError, match="Faltan credenciales"):
+def test_telegram_publisher_ensure_ready_sin_un_bot_da_publish_error():
+    # Falta solo el bot de Real Madrid: el mensaje debe decirlo puntualmente.
+    publisher = TelegramPublisher(
+        bot_tokens={"barcelona": "TOKEN_JOSEP", "real_madrid": ""}, chat_id="123"
+    )
+    with pytest.raises(PublishError, match="TELEGRAM_BOT_TOKEN_REAL_MADRID"):
         publisher.ensure_ready()
 
 
 def test_telegram_publisher_ensure_ready_con_credenciales_no_lanza():
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
     assert publisher.ensure_ready() is None
 
 
-def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
+def test_telegram_publisher_publica_header_y_cada_turno_con_el_bot_de_su_equipo():
     debate = Debate(
         question="Quien tiene mejor delantera?",
         mode="mcp",
@@ -100,7 +106,7 @@ def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
             DebateTurn(team="real_madrid", content="Hala Madrid"),
         ],
     )
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
 
     responses = [_fake_response(1), _fake_response(2), _fake_response(3)]
     with (
@@ -116,19 +122,25 @@ def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
     assert post.call_count == 3
     first_call, second_call, third_call = post.call_args_list
 
-    # El header no responde a ningun mensaje previo.
+    # El header lo manda el bot del equipo que habla primero (Barcelona
+    # aca), y no responde a ningun mensaje previo.
+    assert "TOKEN_JOSEP" in first_call.args[0]
     assert "reply_to_message_id" not in first_call.kwargs["json"]
 
-    # Cada turno responde al mensaje anterior (header -> turno 1 -> turno 2).
+    # Cada turno lo manda el bot de SU equipo, respondiendo al mensaje
+    # anterior (header -> turno 1 -> turno 2), sin importar que bot lo mando.
+    assert "TOKEN_JOSEP" in second_call.args[0]
     assert second_call.kwargs["json"]["reply_to_message_id"] == 1
-    assert third_call.kwargs["json"]["reply_to_message_id"] == 2
     assert "Vamos Barca" in second_call.kwargs["json"]["text"]
+
+    assert "TOKEN_PACO" in third_call.args[0]
+    assert third_call.kwargs["json"]["reply_to_message_id"] == 2
     assert "Hala Madrid" in third_call.kwargs["json"]["text"]
 
 
 def test_telegram_publisher_error_de_api_da_publish_error():
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
 
     resp = Mock()
     resp.ok = False
@@ -155,7 +167,7 @@ def _rate_limited_response(retry_after: int = 2):
 
 def test_telegram_publisher_reintenta_tras_rate_limit_429():
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
 
     responses = [_rate_limited_response(retry_after=2), _fake_response(1)]
     with (
@@ -171,7 +183,7 @@ def test_telegram_publisher_reintenta_tras_rate_limit_429():
 
 def test_telegram_publisher_rate_limit_persistente_agota_reintentos():
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
 
     with (
         patch(
@@ -186,14 +198,14 @@ def test_telegram_publisher_rate_limit_persistente_agota_reintentos():
     assert post.call_count == 3
 
 
-def test_telegram_publisher_usa_html_y_negrita_para_el_equipo():
+def test_telegram_publisher_usa_html_y_el_bot_del_equipo_no_texto():
     debate = Debate(
         question="q",
         mode="mcp",
         style="debate",
-        turns=[DebateTurn(team="barcelona", content="Vamos Barca")],
+        turns=[DebateTurn(team="real_madrid", content="Hala Madrid")],
     )
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
 
     with (
         patch(
@@ -204,10 +216,13 @@ def test_telegram_publisher_usa_html_y_negrita_para_el_equipo():
     ):
         publisher.publish(debate)
 
-    header_json, turn_json = (c.kwargs["json"] for c in post.call_args_list)
-    assert header_json["parse_mode"] == "HTML"
-    assert turn_json["parse_mode"] == "HTML"
-    assert f"<b>{BARCELONA_DISPLAY_NAME}</b>" in turn_json["text"]
+    header_call, turn_call = post.call_args_list
+    assert header_call.kwargs["json"]["parse_mode"] == "HTML"
+    assert turn_call.kwargs["json"]["parse_mode"] == "HTML"
+
+    # La identidad la da el bot (Paco/Real Madrid), no una etiqueta en el texto.
+    assert "TOKEN_PACO" in turn_call.args[0]
+    assert REAL_MADRID_DISPLAY_NAME not in turn_call.kwargs["json"]["text"]
 
 
 def test_telegram_publisher_incluye_traza_de_tools_y_escapa_html():
@@ -225,7 +240,7 @@ def test_telegram_publisher_incluye_traza_de_tools_y_escapa_html():
             )
         ],
     )
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = TelegramPublisher(bot_tokens=_BOT_TOKENS, chat_id="123")
 
     with (
         patch(

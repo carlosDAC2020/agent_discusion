@@ -20,9 +20,12 @@ MODEL_TEMPERATURE = float(os.getenv("MODEL_TEMPERATURE", "0.9"))
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
 # Credenciales para publicar el debate en Telegram (src/social/telegram_publisher.py).
-# Bot token: se obtiene hablando con @BotFather. Chat id: el chat/canal/grupo
-# destino (el bot debe estar agregado como admin ahi).
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+# Un bot POR EQUIPO (cada uno se obtiene hablando con @BotFather): asi Josep y
+# Paco publican sus turnos como cuentas de Telegram independientes, no como un
+# unico bot narrando ambos lados. Chat id: el canal/chat destino, con AMBOS
+# bots agregados ahi como administradores.
+TELEGRAM_BOT_TOKEN_BARCELONA = os.getenv("TELEGRAM_BOT_TOKEN_BARCELONA", "")
+TELEGRAM_BOT_TOKEN_REAL_MADRID = os.getenv("TELEGRAM_BOT_TOKEN_REAL_MADRID", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # Credenciales para publicar el debate en Reddit (src/social/reddit_publisher.py).
