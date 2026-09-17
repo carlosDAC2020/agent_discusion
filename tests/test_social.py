@@ -1,6 +1,7 @@
 """Tests de src/social: adaptador de datos, registry y TelegramPublisher.
 
 TelegramPublisher se prueba con `requests.post` mockeado, sin red real.
+RedditPublisher tiene su propio archivo: tests/test_reddit_publisher.py.
 """
 
 from unittest.mock import Mock, patch
@@ -48,8 +49,8 @@ def test_debate_turn_team_label_conoce_ambos_equipos():
 
 def test_registry_conoce_las_4_plataformas():
     assert available_platforms() == ["bluesky", "discord", "reddit", "telegram"]
-    assert IMPLEMENTED_PLATFORMS == {"telegram"}
-    assert PLANNED_PLATFORMS == {"bluesky", "discord", "reddit"}
+    assert IMPLEMENTED_PLATFORMS == {"telegram", "reddit"}
+    assert PLANNED_PLATFORMS == {"bluesky", "discord"}
 
 
 def test_get_publisher_plataforma_desconocida_da_value_error():
@@ -58,7 +59,7 @@ def test_get_publisher_plataforma_desconocida_da_value_error():
 
 
 def test_get_publisher_planeada_falla_recien_al_publicar():
-    publisher = get_publisher("reddit")
+    publisher = get_publisher("discord")
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
     with pytest.raises(NotImplementedError):
         publisher.publish(debate)

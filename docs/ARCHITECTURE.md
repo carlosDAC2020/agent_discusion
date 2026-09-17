@@ -85,13 +85,15 @@ red social externa, sin tocar `src/orchestrator/` ni `src/agents/`.
   | Plataforma | Estado | Idea |
   |---|---|---|
   | Telegram | **Implementado** | Bot API simple (token via @BotFather), un mensaje por turno encadenado con `reply_to_message_id` al turno anterior. |
-  | Reddit | Planeado | `praw`, post inicial + un comentario por turno en cadena de replies. Requiere subreddit propio. |
+  | Reddit | **Implementado** (issue #13) | `praw`, post inicial + un comentario por turno en cadena de replies (`submission.reply` -> `comment.reply`). Requiere subreddit propio. `praw` ya respeta el rate-limit de Reddit, no hace falta throttle manual como en Telegram. |
   | Discord | Planeado | Webhook de canal, un mensaje por turno. |
   | Bluesky | Planeado | AT Protocol (`atproto`), alternativa gratuita a X/Twitter. |
 
   Los publishers "planeados" ya existen como clase (implementan la
   interfaz) pero `publish()` lanza `NotImplementedError` — la arquitectura
   esta lista para sumarlos sin rediseño, se implementan cuando toque.
-- **Uso**: `python main.py ask "..." --publish-to telegram` (o el flag
-  equivalente en `chat`). Credenciales en `.env`
-  (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
+- **Uso**: `python main.py ask "..." --publish-to telegram` (o `reddit`,
+  o el flag equivalente en `chat`). Credenciales en `.env`
+  (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` o `REDDIT_CLIENT_ID`/
+  `REDDIT_CLIENT_SECRET`/`REDDIT_USERNAME`/`REDDIT_PASSWORD`/
+  `REDDIT_SUBREDDIT`).

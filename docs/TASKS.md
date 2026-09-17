@@ -71,16 +71,21 @@ mismo para el detalle de las interfaces entre modulos.
 
 ### Dev Harold — Debate en red social (`src/social/`)
 
-Rama: `feature/harold-social-debate` · Label: `dev:harold` `area:social`
+Label: `dev:harold` `area:social` · Issues: #7 (arquitectura + Telegram), #13 (Reddit)
 
 - [x] Decision de arquitectura (ver `docs/ARCHITECTURE.md#publicacion-en-redes-sociales-srcsocial-fase-2--dev-harold`):
       interfaz `DebatePublisher` + registry por nombre de plataforma, para
       poder sumar redes sociales sin tocar CLI ni orquestador.
-- [x] Telegram implementado de punta a punta: `--publish-to telegram` en
-      `ask`/`chat`, un mensaje por turno encadenado con `reply_to_message_id`.
-- [ ] Reddit, Discord y Bluesky: clase publisher creada (cumple la
-      interfaz) pero `publish()` todavia no implementado — fase 2 de esta
-      misma feature, mismo contrato, sin rediseño.
+- [x] Telegram implementado de punta a punta (issue #7): `--publish-to
+      telegram` en `ask`/`chat`, un mensaje por turno encadenado con
+      `reply_to_message_id`, negrita HTML + traza de tools, throttle y
+      reintento ante rate-limit.
+- [x] Reddit implementado de punta a punta (issue #13): `--publish-to
+      reddit`, post inicial + un comentario por turno encadenado como
+      reply, formato Markdown.
+- [ ] Discord y Bluesky: clase publisher creada (cumple la interfaz) pero
+      `publish()` todavia no implementado — mismo contrato, sin rediseño,
+      se implementan cuando toque.
 - Reutiliza el debate ya orquestado, no reimplementa logica de turnos.
 - Credenciales de cada red social en `.env` / `src/config/settings.py`,
   mismo patron que las demas API keys.
