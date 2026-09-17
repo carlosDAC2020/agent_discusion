@@ -119,8 +119,17 @@ class VisualAgent:
         self.active_dialogue_text: str = ""
         self.dialogue_hold_timer: float = 0.0
 
+        # Estados visuales de audio (Fase 6)
+        self.voice_state: str = "IDLE"
+        self.is_speaking_voice: bool = False
+        self.voice_segment_text: Optional[str] = None
 
-
+    def set_voice_state(self, state: str, segment_text: Optional[str] = None) -> None:
+        """Actualiza el estado visual de voz del personaje."""
+        self.voice_state = state
+        self.is_speaking_voice = (state == "VOICE_PLAYING")
+        if segment_text is not None:
+            self.voice_segment_text = segment_text
     @property
     def depth(self) -> float:
         """Clave de ordenamiento de profundidad Y para el algoritmo del pintor."""
@@ -500,9 +509,17 @@ class BartenderNPC:
         self.active_bubble_text: Optional[str] = None
         self.bubble_timer: float = 0.0
 
+        # Audio y voz (Fase 6)
+        self.voice_state: str = "IDLE"
+        self.is_speaking_voice: bool = False
+
     @property
     def depth(self) -> float:
         return self.y
+
+    def set_voice_state(self, state: str, segment_text: Optional[str] = None) -> None:
+        self.voice_state = state
+        self.is_speaking_voice = (state == "VOICE_PLAYING")
 
     def say(self, text: str, duration: float = 3.0) -> None:
         """Despliega un bocadillo cómic del camarero."""

@@ -202,6 +202,7 @@ class ConversationCoordinator:
         agents: List[Any],
         manolo: Any,
         dialogue_adapter: Optional[Any],
+        audio_manager: Optional[Any] = None,
     ) -> None:
         """Avanza la máquina de estados de la conversación frame a frame."""
         if len(agents) < 2 or self.state == ConversationCoordinatorState.IDLE:
@@ -252,6 +253,13 @@ class ConversationCoordinator:
                             complete=True,
                         )
                     )
+                    if audio_manager is not None:
+                        audio_manager.submit_voice(
+                            self.current_question.text,
+                            speaker="manolo",
+                            conversation_id=self.current_question.question_id,
+                            turn_id="manolo_intro",
+                        )
 
                 self.manolo_timer = MANOLO_QUESTION_HOLD_SECONDS
                 self.state = ConversationCoordinatorState.MANOLO_ASKING
@@ -266,7 +274,8 @@ class ConversationCoordinator:
             josep.set_facing("left")
             paco.set_facing("left")
 
-            if self.manolo_timer <= 0.0:
+            manolo_speaking = audio_manager.is_speaking("manolo") if audio_manager else False
+            if self.manolo_timer <= 0.0 and not manolo_speaking:
                 # Transicionar a debate: encarar entre sí
                 josep.set_facing("left")
                 paco.set_facing("left")
@@ -387,7 +396,12 @@ class ConversationCoordinator:
                 self.state = ConversationCoordinatorState.IDLE
                 self.status_message = "Escribe tu pregunta para iniciar el debate..."
 
-    def process_dialogue_event(self, ev: DialogueEvent, agents: List[Any]) -> None:
+    def process_dialogue_event(
+        self,
+        ev: DialogueEvent,
+        agents: List[Any],
+        audio_manager: Optional[Any] = None,
+    ) -> None:
         """Procesa eventos streaming de LangGraph actualizando el historial y tarjetas."""
         speaker_name = "Josep (Barça)" if ev.speaker_team == "barcelona" else "Paco (Madrid)"
         role = "josep" if ev.speaker_team == "barcelona" else "paco"
@@ -420,6 +434,15 @@ class ConversationCoordinator:
             elif self.messages and self.messages[-1].role == role:
                 self.messages[-1].text = ev.text
                 self.messages[-1].complete = True
+
+            # Enviar mensaje completado al gestor de audio para síntesis TTS
+            if audio_manager is not None and ev.text:
+                audio_manager.submit_voice(
+                    ev.text,
+                    speaker=role,
+                    conversation_id=ev.conversation_id,
+                    turn_id=f"turn_{int(time.time()*1000)}_{role}",
+                )
 
         elif ev.event_type == DialogueEventType.FINISHED:
             if self._current_streaming_message:

@@ -7,7 +7,7 @@ Renderiza un panel UI desacoplado de 380x640 px fuera del lienzo del Bar, con:
 4. Caja de texto interactiva con foco, cursor, edición y envío por Enter o botón.
 """
 
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 import pygame
 
 from src.simulation.config import CHAT_PANEL_WIDTH, WINDOW_HEIGHT
@@ -88,14 +88,24 @@ class ChatUI:
 
         # Geometría de zonas
         self.header_height = 54
-        self.input_area_height = 68
+        self.input_area_height = 98
         self.viewport_height = height - self.header_height - self.input_area_height
 
-        self.input_rect = pygame.Rect(12, height - 56, width - 100, 42)
-        self.send_btn_rect = pygame.Rect(width - 82, height - 56, 70, 42)
+        # Botones de la barra de control de audio
+        self.btn_tts_rect = pygame.Rect(12, height - 90, 84, 24)
+        self.btn_pause_rect = pygame.Rect(102, height - 90, 84, 24)
+        self.btn_stop_rect = pygame.Rect(192, height - 90, 84, 24)
+        self.btn_mute_rect = pygame.Rect(282, height - 90, 86, 24)
+
+        # Campo de entrada y botón de envío
+        self.input_rect = pygame.Rect(12, height - 58, width - 96, 44)
+        self.send_btn_rect = pygame.Rect(width - 76, height - 58, 64, 44)
 
     def handle_event(
-        self, event: pygame.event.Event, offset_x: int = 960
+        self,
+        event: pygame.event.Event,
+        offset_x: int = 960,
+        audio_manager: Optional[Any] = None,
     ) -> Optional[str]:
         """Procesa eventos de ratón y teclado dentro del panel lateral.
 
@@ -109,6 +119,25 @@ class ChatUI:
             else:
                 panel_x = mouse_x - offset_x
                 panel_y = mouse_y
+
+                # Clics en la barra de control de audio
+                if event.button == 1 and audio_manager is not None:
+                    if self.btn_tts_rect.collidepoint(panel_x, panel_y):
+                        audio_manager.toggle_tts()
+                        self.input_active = False
+                        return None
+                    elif self.btn_pause_rect.collidepoint(panel_x, panel_y):
+                        audio_manager.toggle_pause()
+                        self.input_active = False
+                        return None
+                    elif self.btn_stop_rect.collidepoint(panel_x, panel_y):
+                        audio_manager.cancel_current_speech()
+                        self.input_active = False
+                        return None
+                    elif self.btn_mute_rect.collidepoint(panel_x, panel_y):
+                        audio_manager.toggle_mute()
+                        self.input_active = False
+                        return None
 
                 # Clic en campo de entrada
                 if self.input_rect.collidepoint(panel_x, panel_y):
@@ -186,6 +215,7 @@ class ChatUI:
         font: pygame.font.Font,
         font_bold: pygame.font.Font,
         font_small: pygame.font.Font,
+        audio_manager: Optional[Any] = None,
     ) -> pygame.Surface:
         """Dibuja el panel lateral completo y retorna su superficie."""
         surf = self.surface
@@ -293,13 +323,63 @@ class ChatUI:
         surf.blit(messages_surf, (0, self.header_height))
 
         # ---------------------------------------------------------------------
-        # 3. Zona inferior de entrada de texto y botón
+        # 3. Zona inferior: Controles de Audio y Entrada de texto
         # ---------------------------------------------------------------------
         input_area_rect = pygame.Rect(0, self.height - self.input_area_height, self.width, self.input_area_height)
         pygame.draw.rect(surf, COLOR_HEADER_BG, input_area_rect)
         pygame.draw.line(surf, COLOR_PANEL_BORDER, (0, input_area_rect.y), (self.width, input_area_rect.y), 1)
 
-        # Caja de entrada
+        # 3.1. Barra de Controles de Audio interactiva
+        if audio_manager is not None:
+            # 1. Botón TTS On / Off (tecla T)
+            tts_active = getattr(audio_manager, "tts_enabled", True)
+            tts_bg = (24, 48, 32) if tts_active else (48, 24, 24)
+            tts_border = (60, 160, 90) if tts_active else (160, 60, 60)
+            tts_text_col = (140, 230, 160) if tts_active else (230, 140, 140)
+            tts_lbl = "🎙️ Voz: ON" if tts_active else "🎙️ Voz: OFF"
+
+            pygame.draw.rect(surf, tts_bg, self.btn_tts_rect, border_radius=4)
+            pygame.draw.rect(surf, tts_border, self.btn_tts_rect, width=1, border_radius=4)
+            lbl_s = font_small.render(tts_lbl, True, tts_text_col)
+            surf.blit(lbl_s, (self.btn_tts_rect.x + (self.btn_tts_rect.width - lbl_s.get_width()) // 2, self.btn_tts_rect.y + 4))
+
+            # 2. Botón Pausa / Reanudar (tecla K)
+            is_paused = getattr(audio_manager, "is_paused", False)
+            pause_bg = (60, 48, 15) if is_paused else (28, 26, 36)
+            pause_border = (220, 170, 40) if is_paused else (70, 65, 82)
+            pause_text_col = (250, 220, 120) if is_paused else COLOR_TEXT_WHITE
+            pause_lbl = "▶️ Seguir" if is_paused else "⏸️ Pausar"
+
+            pygame.draw.rect(surf, pause_bg, self.btn_pause_rect, border_radius=4)
+            pygame.draw.rect(surf, pause_border, self.btn_pause_rect, width=1, border_radius=4)
+            lbl_p = font_small.render(pause_lbl, True, pause_text_col)
+            surf.blit(lbl_p, (self.btn_pause_rect.x + (self.btn_pause_rect.width - lbl_p.get_width()) // 2, self.btn_pause_rect.y + 4))
+
+            # 3. Botón Parar locución (tecla X)
+            speaking = audio_manager.is_speaking() or bool(getattr(audio_manager, "playback_queue", None))
+            stop_bg = (50, 22, 28) if speaking else (28, 26, 36)
+            stop_border = (210, 65, 75) if speaking else (55, 52, 64)
+            stop_text_col = (250, 160, 170) if speaking else COLOR_TEXT_MUTED
+            stop_lbl = "⏹️ Parar"
+
+            pygame.draw.rect(surf, stop_bg, self.btn_stop_rect, border_radius=4)
+            pygame.draw.rect(surf, stop_border, self.btn_stop_rect, width=1, border_radius=4)
+            lbl_st = font_small.render(stop_lbl, True, stop_text_col)
+            surf.blit(lbl_st, (self.btn_stop_rect.x + (self.btn_stop_rect.width - lbl_st.get_width()) // 2, self.btn_stop_rect.y + 4))
+
+            # 4. Botón Silencio / Mute (tecla M)
+            is_muted = getattr(audio_manager, "is_muted", False)
+            mute_bg = (50, 22, 22) if is_muted else (22, 35, 48)
+            mute_border = (210, 60, 60) if is_muted else (65, 120, 190)
+            mute_text_col = (250, 140, 140) if is_muted else (150, 200, 255)
+            mute_lbl = "🔇 Mudo" if is_muted else "🔊 Audio"
+
+            pygame.draw.rect(surf, mute_bg, self.btn_mute_rect, border_radius=4)
+            pygame.draw.rect(surf, mute_border, self.btn_mute_rect, width=1, border_radius=4)
+            lbl_m = font_small.render(mute_lbl, True, mute_text_col)
+            surf.blit(lbl_m, (self.btn_mute_rect.x + (self.btn_mute_rect.width - lbl_m.get_width()) // 2, self.btn_mute_rect.y + 4))
+
+        # 3.2. Caja de entrada de texto
         box_border = COLOR_INPUT_BORDER_FOCUS if self.input_active else COLOR_INPUT_BORDER_IDLE
         pygame.draw.rect(surf, COLOR_INPUT_BG, self.input_rect, border_radius=5)
         pygame.draw.rect(surf, box_border, self.input_rect, width=1, border_radius=5)

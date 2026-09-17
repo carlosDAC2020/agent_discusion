@@ -6,3 +6,9 @@ venv/
 .mypy_cache/
 .pytest_cache/
 *.egg-info/
+*.wav
+*.mp3
+*.tmp
+*.log
+logs/
+.DS_Store

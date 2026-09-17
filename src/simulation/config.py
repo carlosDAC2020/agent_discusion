@@ -224,4 +224,21 @@ DIALOGUE_BUBBLE_HOLD_SECONDS: float = 6.0
 DEBATE_FINISHED_HOLD_SECONDS: float = 4.0
 MANOLO_QUESTION_HOLD_SECONDS: float = 3.5
 
-
+# -----------------------------------------------------------------------------
+# Parámetros centralizados de Audio y Gemini TTS (Fase 6)
+# -----------------------------------------------------------------------------
+from src.simulation.audio_config import (
+    AUDIO_ENABLED,
+    AUDIO_SAMPLE_RATE,
+    AUDIO_CHANNELS,
+    AUDIO_SAMPLE_WIDTH,
+    GEMINI_TTS_ENABLED,
+    GEMINI_TTS_MODEL,
+    MANOLO_TTS_VOICE,
+    JOSEP_TTS_VOICE,
+    PACO_TTS_VOICE,
+    GEMINI_TTS_FALLBACK_VOICE,
+    VOICE_VOLUME,
+    MUSIC_VOLUME,
+    EFFECTS_VOLUME,
+)

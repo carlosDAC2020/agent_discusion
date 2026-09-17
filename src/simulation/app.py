@@ -16,6 +16,8 @@ from src.simulation.agent import (
     CoughingManNPC,
     VisualAgent,
 )
+from src.simulation.audio import AudioManager
+from src.simulation.audio_events import AudioEventType
 from src.simulation.camera import Camera25D, default_camera
 from src.simulation.chat_ui import ChatUI
 from src.simulation.config import (
@@ -89,10 +91,13 @@ def run_simulation(
     bdi: bool = False,
     dialogue: bool = False,
     dialogue_adapter: Optional[Any] = None,
+    audio_manager: Optional[Any] = None,
+    audio_enabled: bool = True,
+    tts_enabled: bool = True,
     max_frames: Optional[int] = None,
     seed: Optional[int] = None,
 ) -> None:
-    """Ejecuta el bucle principal de la escena 2.5D en Pygame con navegación y arquitectura BDI.
+    """Ejecuta el bucle principal de la escena 2.5D en Pygame con navegación, BDI y síntesis de audio.
 
     Args:
         debug: Si True, arranca mostrando la cuadrícula, celdas bloqueadas, colisiones y rutas.
@@ -100,6 +105,9 @@ def run_simulation(
         bdi: Si True, activa el comportamiento autónomo deliberativo BDI para Josep y Paco.
         dialogue: Si True, inicia el sistema de debate real con LangGraph en segundo plano.
         dialogue_adapter: Adaptador de diálogo opcional (permite inyectar mocks en pruebas).
+        audio_manager: Gestor de audio opcional (permite inyectar mock TTS en pruebas).
+        audio_enabled: Si False, desactiva la inicialización del subsistema de audio.
+        tts_enabled: Si False, arranca con la generación de voz TTS desactivada.
         max_frames: Si se especifica, corre N frames y sale (útil para pruebas automatizadas).
         seed: Semilla pseudoaleatoria determinista para el controlador BDI.
     """
@@ -161,6 +169,14 @@ def run_simulation(
             f"worker_thread_id={dialogue_adapter.worker.ident if dialogue_adapter.worker else None}, worker_alive={dialogue_adapter.worker.is_alive() if dialogue_adapter.worker else False}",
         )
 
+    if audio_manager is None:
+        audio_manager = AudioManager()
+    if not audio_enabled:
+        audio_manager.audio_available = False
+    if not tts_enabled:
+        audio_manager.tts_enabled = False
+    audio_manager.start()
+
     # Inicializar controladores BDI para Josep y Paco con personalidades diferenciadas
     bdi_controllers = [
         BDIController("josep_barca", "barcelona", "Josep", create_josep_personality(), seed=seed),
@@ -211,8 +227,8 @@ def run_simulation(
                         (event.w, event.h), pygame.RESIZABLE
                     )
                 else:
-                    # Enrutamiento al panel lateral de chat
-                    submitted_q = chat_ui.handle_event(event, offset_x=bar_screen_w)
+                    # Enrutamiento al panel lateral de chat con controles de audio
+                    submitted_q = chat_ui.handle_event(event, offset_x=bar_screen_w, audio_manager=audio_manager)
                     if submitted_q:
                         if dialogue_adapter is None:
                             from src.simulation.dialogue import DialogueAdapter
@@ -251,6 +267,18 @@ def run_simulation(
                                 bdi_controllers[0].detach_dialogue_adapter()
                                 bdi_controllers[1].detach_dialogue_adapter()
                         elif event.key == pygame.K_m:
+                            if audio_manager is not None:
+                                audio_manager.toggle_mute()
+                        elif event.key == pygame.K_k:
+                            if audio_manager is not None:
+                                audio_manager.toggle_pause()
+                        elif event.key in (pygame.K_x, pygame.K_s):
+                            if audio_manager is not None:
+                                audio_manager.cancel_current_speech()
+                        elif event.key == pygame.K_t:
+                            if audio_manager is not None:
+                                audio_manager.toggle_tts()
+                        elif event.key == pygame.K_p:
                             demo_active = not demo_active
                             if demo_active and bdi_active:
                                 bdi_active = False
@@ -296,19 +324,23 @@ def run_simulation(
 
             # 2.2. Actualizar tertulia, máquina de estados y UI lateral
             chat_ui.update(dt)
+            if audio_manager is not None:
+                audio_manager.update(dt)
+
             coordinator.update(
                 dt,
                 world=world,
                 agents=agents,
                 manolo=bartender_npc,
                 dialogue_adapter=dialogue_adapter,
+                audio_manager=audio_manager,
             )
 
             # 2.5. Procesar eventos del worker de LangGraph si el adaptador de diálogo está activo
             if dialogue_adapter is not None:
                 drained_events = dialogue_adapter.poll_events()
                 for ev in drained_events:
-                    coordinator.process_dialogue_event(ev, agents)
+                    coordinator.process_dialogue_event(ev, agents, audio_manager=audio_manager)
                     speaker = next((a for a in agents if a.team == ev.speaker_team), None)
                     listener = next((a for a in agents if a.team != ev.speaker_team), None) if speaker else None
 
@@ -349,6 +381,27 @@ def run_simulation(
                             if speaker:
                                 speaker.say("... (sin conexión con el modelo)", duration=2.5)
 
+            # 2.8. Procesar eventos del subsistema de audio y reflejar estados visuales
+            if audio_manager is not None:
+                for aev in audio_manager.poll_events():
+                    target = None
+                    if aev.speaker in ("manolo", "bartender"):
+                        target = bartender_npc
+                    elif aev.speaker in ("josep", "barcelona", "josep_barca"):
+                        target = agents[0] if len(agents) > 0 else None
+                    elif aev.speaker in ("paco", "real_madrid", "paco_madrid"):
+                        target = agents[1] if len(agents) > 1 else None
+
+                    if target is not None:
+                        if aev.event_type == AudioEventType.VOICE_STARTED:
+                            target.set_voice_state("VOICE_PLAYING")
+                        elif aev.event_type in (
+                            AudioEventType.VOICE_FINISHED,
+                            AudioEventType.VOICE_ERROR,
+                            AudioEventType.VOICE_CANCELLED,
+                        ):
+                            target.set_voice_state("IDLE")
+
             # 3. Actualización de agentes con dt, mundo y referencia al otro agente
             for idx, agent in enumerate(agents):
                 other = agents[1 - idx] if len(agents) > 1 else None
@@ -376,8 +429,10 @@ def run_simulation(
                     camera=camera,
                 )
 
-            # Renderizado del panel lateral de tertulia
-            panel_surface = chat_ui.render(coordinator, font_small, font_small_bold, font_tiny)
+            # Renderizado del panel lateral de tertulia con barra de control de audio
+            panel_surface = chat_ui.render(
+                coordinator, font_small, font_small_bold, font_tiny, audio_manager=audio_manager
+            )
 
             # 5. Escalado y presentación en la ventana
             if current_window_size == (WINDOW_WIDTH, WINDOW_HEIGHT):
@@ -399,6 +454,8 @@ def run_simulation(
                 break
 
     finally:
+        if audio_manager is not None:
+            audio_manager.shutdown()
         if dialogue_adapter is not None:
             dialogue_adapter.shutdown()
         pygame.quit()
@@ -409,4 +466,13 @@ if __name__ == "__main__":
     cli_demo = "--demo-movement" in sys.argv or "--demo" in sys.argv
     cli_bdi = "--bdi" in sys.argv or "-b" in sys.argv
     cli_dialogue = "--dialogue" in sys.argv
-    run_simulation(debug=cli_debug, demo_movement=cli_demo, bdi=cli_bdi, dialogue=cli_dialogue)
+    cli_no_audio = "--no-audio" in sys.argv
+    cli_no_tts = "--no-tts" in sys.argv
+    run_simulation(
+        debug=cli_debug,
+        demo_movement=cli_demo,
+        bdi=cli_bdi,
+        dialogue=cli_dialogue,
+        audio_enabled=not cli_no_audio,
+        tts_enabled=not cli_no_tts,
+    )
