@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import math
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from src.simulation.config import (
     DEBATE_FINISHED_HOLD_SECONDS,
@@ -27,9 +27,11 @@ from src.simulation.dialogue import DialogueEvent, DialogueEventType
 # CONTRATOS DE DATOS DE CONVERSACIÓN
 # =============================================================================
 
+
 @dataclass(frozen=True)
 class UserQuestion:
     """Pregunta formulada por el usuario desde la interfaz lateral."""
+
     question_id: str
     text: str
     created_at: float = field(default_factory=time.time)
@@ -38,9 +40,10 @@ class UserQuestion:
 @dataclass
 class ChatMessage:
     """Mensaje persistente en el historial de la tertulia."""
+
     message_id: str
-    author: str           # "Tú", "Manolo [Barman]", "Josep (Barça)", "Paco (Madrid)", "Sistema"
-    role: str             # "user", "manolo", "josep", "paco", "system"
+    author: str  # "Tú", "Manolo [Barman]", "Josep (Barça)", "Paco (Madrid)", "Sistema"
+    role: str  # "user", "manolo", "josep", "paco", "system"
     text: str
     timestamp: float = field(default_factory=time.time)
     conversation_id: Optional[str] = None
@@ -49,6 +52,7 @@ class ChatMessage:
 
 class ConversationCoordinatorState(str, Enum):
     """Estados del ciclo de vida de la sesión de tertulia y debate."""
+
     IDLE = "IDLE"
     AGENTS_GOING_TO_BAR = "AGENTS_GOING_TO_BAR"
     MANOLO_ASKING = "MANOLO_ASKING"
@@ -61,6 +65,7 @@ class ConversationCoordinatorState(str, Enum):
 # =============================================================================
 # COORDINADOR DE CONVERSACIÓN
 # =============================================================================
+
 
 class ConversationCoordinator:
     """Orquestador de alto nivel del debate en la barra entre usuario, Manolo y tertulianos."""
@@ -154,7 +159,7 @@ class ConversationCoordinator:
                         message_id=f"sys_queue_{q_id}",
                         author="Sistema",
                         role="system",
-                        text=f"Pregunta en espera: \"{clean_text}\". Se formulará al concluir el debate actual.",
+                        text=f'Pregunta en espera: "{clean_text}". Se formulará al concluir el debate actual.',
                         complete=True,
                     )
                 )
@@ -223,8 +228,8 @@ class ConversationCoordinator:
             j_dist = math.hypot(josep.x - b_spot.x, josep.y - b_spot.y) if b_spot else 0.0
             p_dist = math.hypot(paco.x - m_spot.x, paco.y - m_spot.y) if m_spot else 0.0
 
-            j_arrived = (j_dist <= 12.0 or (j_dist <= 28.0 and not josep.is_navigating))
-            p_arrived = (p_dist <= 12.0 or (p_dist <= 28.0 and not paco.is_navigating))
+            j_arrived = j_dist <= 12.0 or (j_dist <= 28.0 and not josep.is_navigating)
+            p_arrived = p_dist <= 12.0 or (p_dist <= 28.0 and not paco.is_navigating)
             both_arrived = j_arrived and p_arrived
 
             # Si ambos llegaron o se acaba el tiempo límite de navegación
@@ -241,9 +246,7 @@ class ConversationCoordinator:
 
                 # Iniciar moderación de Manolo
                 if self.current_question and hasattr(manolo, "moderate_question"):
-                    manolo.moderate_question(
-                        self.current_question.text, duration=MANOLO_QUESTION_HOLD_SECONDS
-                    )
+                    manolo.moderate_question(self.current_question.text, duration=MANOLO_QUESTION_HOLD_SECONDS)
                     self.messages.append(
                         ChatMessage(
                             message_id=f"manolo_{self.current_question.question_id}",
@@ -290,6 +293,7 @@ class ConversationCoordinator:
             if dialogue_adapter is None:
                 try:
                     from src.simulation.dialogue import DialogueAdapter
+
                     dialogue_adapter = DialogueAdapter()
                     dialogue_adapter.start()
                 except Exception:
@@ -322,7 +326,7 @@ class ConversationCoordinator:
                 # Fallback sin adaptador de diálogo: debate local simulado
                 self.messages.append(
                     ChatMessage(
-                        message_id=f"err_no_adapter_{int(time.time()*1000)}",
+                        message_id=f"err_no_adapter_{int(time.time() * 1000)}",
                         author="Sistema",
                         role="system",
                         text="[Aviso]: Adaptador de diálogo no disponible para conectar con LangGraph.",
@@ -360,9 +364,7 @@ class ConversationCoordinator:
                     paco.set_facing("left")
 
                     if hasattr(manolo, "moderate_question"):
-                        manolo.moderate_question(
-                            self.current_question.text, duration=MANOLO_QUESTION_HOLD_SECONDS
-                        )
+                        manolo.moderate_question(self.current_question.text, duration=MANOLO_QUESTION_HOLD_SECONDS)
                         self.messages.append(
                             ChatMessage(
                                 message_id=f"manolo_{self.current_question.question_id}",
@@ -409,7 +411,7 @@ class ConversationCoordinator:
         if ev.event_type == DialogueEventType.TURN_STARTED:
             # Crear nueva tarjeta para el orador en el chat
             msg = ChatMessage(
-                message_id=f"msg_turn_{int(time.time()*1000)}_{role}",
+                message_id=f"msg_turn_{int(time.time() * 1000)}_{role}",
                 author=speaker_name,
                 role=role,
                 text="",
@@ -441,7 +443,7 @@ class ConversationCoordinator:
                     ev.text,
                     speaker=role,
                     conversation_id=ev.conversation_id,
-                    turn_id=f"turn_{int(time.time()*1000)}_{role}",
+                    turn_id=f"turn_{int(time.time() * 1000)}_{role}",
                 )
 
         elif ev.event_type == DialogueEventType.FINISHED:
@@ -456,7 +458,7 @@ class ConversationCoordinator:
             err_text = ev.error_message or "Error en la conexión con el modelo."
             self.messages.append(
                 ChatMessage(
-                    message_id=f"err_{int(time.time()*1000)}",
+                    message_id=f"err_{int(time.time() * 1000)}",
                     author="Sistema",
                     role="system",
                     text=f"[Error]: {err_text}",

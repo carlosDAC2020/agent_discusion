@@ -23,7 +23,6 @@ Valida exhaustivamente los 20 requisitos de navegación:
 20. Integración y compatibilidad con las fases previas.
 """
 
-import math
 import os
 import pytest
 
@@ -31,16 +30,13 @@ from src.simulation.agent import VisualAgent
 from src.simulation.app import create_initial_agents, run_simulation
 from src.simulation.camera import default_camera
 from src.simulation.config import (
-    DEFAULT_AGENT_SPEED,
     STATE_IDLE,
-    STATE_LOOKING_LEFT,
     STATE_LOOKING_RIGHT,
     STATE_WALKING,
     TILE_SIZE,
 )
 from src.simulation.navigation import (
     PathFollower,
-    PathResult,
     cell_to_pos,
     find_nearest_walkable_cell,
     find_path_astar,
@@ -53,6 +49,7 @@ from src.simulation.world import BarWorld
 # =============================================================================
 # 1 Y 2. CONVERSIÓN DE COORDENADAS Y CELDAS
 # =============================================================================
+
 
 def test_pos_to_cell_conversion():
     """Valida la conversión de coordenadas lógicas a índices de celda (col, row)."""
@@ -83,6 +80,7 @@ def test_cell_to_pos_conversion():
 # =============================================================================
 # 3, 4, 5, 6, 7 Y 8. ALGORITMO A* Y REGLAS DE RUTA
 # =============================================================================
+
 
 def test_astar_valid_path_between_walkable_cells():
     """Valida que A* encuentre una ruta válida entre dos zonas abiertas del bar."""
@@ -186,6 +184,7 @@ def test_astar_determinism():
 # 9, 10, 11 Y 12. MOVIMIENTO CON DT, VELOCIDAD, LLEGADA Y CANCELACIÓN
 # =============================================================================
 
+
 def test_movement_proportional_to_dt():
     """Valida que el avance físico dependa linealmente de dt."""
     follower = PathFollower(speed=100.0)
@@ -255,6 +254,7 @@ def test_navigation_cancellation():
 # 13 Y 14. ORIENTACIÓN Y TRANSICIONES DE ESTADO
 # =============================================================================
 
+
 def test_facing_direction_changes_with_movement():
     """Verifica que el agente cambie de orientación visual según el vector de desplazamiento."""
     world = BarWorld()
@@ -308,6 +308,7 @@ def test_state_transition_idle_walking_idle():
 # 15, 16 Y 17. COLISIONES, LÍMITES E INMOVILIDAD POR DEFECTO
 # =============================================================================
 
+
 def test_agent_never_crosses_obstacles():
     """Certifica que durante todo el recorrido el agente mantenga su collider libre de obstáculos."""
     world = BarWorld()
@@ -325,9 +326,7 @@ def test_agent_never_crosses_obstacles():
     while agent.is_navigating:
         agent.update(0.016, world=world)
         # Collider de 20x20 alrededor de (agent.x, agent.y)
-        assert not world.collides(agent.x - 10, agent.y - 10, 20, 20), (
-            f"Colisión detectada en ({agent.x}, {agent.y})"
-        )
+        assert not world.collides(agent.x - 10, agent.y - 10, 20, 20), f"Colisión detectada en ({agent.x}, {agent.y})"
 
 
 def test_agent_stays_within_world_bounds():
@@ -365,6 +364,7 @@ def test_agents_remain_static_without_demo_or_orders():
 # 18, 19 Y 20. CÁMARA 2.5D, EJECUCIÓN HEADLESS Y SUITE COMPLETA
 # =============================================================================
 
+
 def test_camera_25d_depth_updates_smoothly_during_movement():
     """Verifica que la profundidad de renderizado (depth = agent.y) se actualice continuamente."""
     world = BarWorld()
@@ -383,12 +383,8 @@ def test_camera_25d_depth_updates_smoothly_during_movement():
 def test_headless_execution_with_demo_movement_flag():
     """Valida la ejecución en modo headless de run_simulation con --demo-movement activado."""
     os.environ["SDL_VIDEODRIVER"] = "dummy"
-    try:
-        # Corre 10 frames con demo activo y debug activado sin errores
-        run_simulation(debug=True, demo_movement=True, max_frames=10)
-    finally:
-        if os.environ.get("SDL_VIDEODRIVER") == "dummy":
-            del os.environ["SDL_VIDEODRIVER"]
+    # Corre 10 frames con demo activo y debug activado sin errores
+    run_simulation(debug=True, demo_movement=True, max_frames=10)
 
 
 def test_nearest_walkable_cell_utility():

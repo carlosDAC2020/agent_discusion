@@ -14,20 +14,15 @@
 12. Ejecución headless completa con interacciones de barra y NPCs activos durante 60 frames.
 """
 
-import math
 import os
 import pygame
-import pytest
 
 from src.simulation.agent import BartenderNPC, CleanerNPC, CoughingManNPC, VisualAgent
-from src.simulation.app import create_atmosphere_npcs, create_initial_agents, run_simulation
-from src.simulation.bdi import BDIController, Desire, DesireType, Intention, IntentionState, create_josep_personality
+from src.simulation.app import run_simulation
+from src.simulation.bdi import BDIController, DesireType
 from src.simulation.sprites import (
     get_agent_sprite,
-    get_bartender_sprite,
-    get_cleaner_sprite,
     get_counter_drink_sprite,
-    get_old_man_sprite,
     render_dialogue_bubble,
 )
 from src.simulation.world import BarWorld
@@ -36,6 +31,7 @@ from src.simulation.world import BarWorld
 # =============================================================================
 # 1, 2 Y 3. POSTURAS Y DIÁLOGOS DE VISUALAGENT
 # =============================================================================
+
 
 def test_visual_agent_sitting_posture():
     """Valida la activación de la postura sentada y la generación de su sprite."""
@@ -93,6 +89,7 @@ def test_visual_agent_dialogue_bubble():
 # 4, 5 Y 6. BARTENDER MANOLO: ESPACIO DELIMITADO Y SERVICIO DE TRAGOS
 # =============================================================================
 
+
 def test_bartender_delimited_workspace():
     """Verifica que Manolo permanezca estrictamente dentro de su pasillo detrás de la barra."""
     bartender = BartenderNPC(x=80.0, y=240.0)
@@ -131,13 +128,15 @@ def test_bartender_counter_drinks_consumption():
     bartender = BartenderNPC(x=80.0, y=240.0)
     customer = VisualAgent("paco", "real_madrid", "Paco", 176.0, 240.0, initial_facing="left")
 
-    bartender.counter_drinks.append({
-        "x": 128.0,
-        "y": 240.0,
-        "level": 1.0,
-        "customer": customer,
-        "drinking": True,
-    })
+    bartender.counter_drinks.append(
+        {
+            "x": 128.0,
+            "y": 240.0,
+            "level": 1.0,
+            "customer": customer,
+            "drinking": True,
+        }
+    )
 
     bartender.update(1.0)
     assert bartender.counter_drinks[0]["level"] < 1.0
@@ -146,6 +145,7 @@ def test_bartender_counter_drinks_consumption():
 # =============================================================================
 # 7 Y 8. DOÑA CARMEN (LIMPIEZA): ESPACIO DELIMITADO Y RUTINAS
 # =============================================================================
+
 
 def test_cleaner_delimited_workspace_and_waypoints():
     """Verifica que Doña Carmen permanezca en su zona delimitada y recorra sus waypoints."""
@@ -176,6 +176,7 @@ def test_cleaner_cleaning_and_resting_cycle():
 # 9 Y 10. DON ANTONIO: ESPACIO DELIMITADO, TOS E INTERACCIÓN
 # =============================================================================
 
+
 def test_old_man_delimited_workspace_and_stretch():
     """Verifica que Don Antonio permanezca en su rincón y se levante a estirar las piernas."""
     old_man = CoughingManNPC(x=800.0, y=544.0)
@@ -204,6 +205,7 @@ def test_old_man_responds_to_agent_concern():
 # =============================================================================
 # 11 Y 12. SPRITES INTERACTIVOS Y EJECUCIÓN HEADLESS
 # =============================================================================
+
 
 def test_counter_drink_sprite_and_dialogue_bubble_render():
     """Valida la generación de sprites de vaso y renderizado del bocadillo cómic."""
@@ -330,5 +332,3 @@ def test_paco_drinks_at_bar_when_thirsty_and_has_bar_preferences():
     assert bdi.current_intention is not None
     assert bdi.current_intention.desire_type == DesireType.DRINK
     assert "bar_stool" in (bdi.current_intention.target_poi_name or "")
-
-

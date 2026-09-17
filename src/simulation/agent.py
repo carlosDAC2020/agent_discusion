@@ -106,9 +106,7 @@ class VisualAgent:
         self.active_bubble_text: Optional[str] = None
         self.bubble_timer: float = 0.0
         self.last_spoken_npc_timer: float = 0.0
-        self.bubble_accent: Tuple[int, int, int] = (
-            (0, 77, 152) if team == "barcelona" else (190, 160, 45)
-        )
+        self.bubble_accent: Tuple[int, int, int] = (0, 77, 152) if team == "barcelona" else (190, 160, 45)
 
         # Estado de conversación y diálogo real (Fase 5 y Tertulia)
         self.conversation_phase: ConversationPhase = ConversationPhase.IDLE
@@ -127,9 +125,10 @@ class VisualAgent:
     def set_voice_state(self, state: str, segment_text: Optional[str] = None) -> None:
         """Actualiza el estado visual de voz del personaje."""
         self.voice_state = state
-        self.is_speaking_voice = (state == "VOICE_PLAYING")
+        self.is_speaking_voice = state == "VOICE_PLAYING"
         if segment_text is not None:
             self.voice_segment_text = segment_text
+
     @property
     def depth(self) -> float:
         """Clave de ordenamiento de profundidad Y para el algoritmo del pintor."""
@@ -212,9 +211,7 @@ class VisualAgent:
             self.active_dialogue_text = text
         self.is_thinking = False
 
-    def complete_dialogue_message(
-        self, text: str, hold_duration: float = DIALOGUE_BUBBLE_HOLD_SECONDS
-    ) -> None:
+    def complete_dialogue_message(self, text: str, hold_duration: float = DIALOGUE_BUBBLE_HOLD_SECONDS) -> None:
         """Fija el mensaje final completado del turno con temporizador de retención."""
         self.active_dialogue_text = text
         self.dialogue_hold_timer = float(hold_duration)
@@ -225,7 +222,6 @@ class VisualAgent:
         self.active_dialogue_text = ""
         self.dialogue_hold_timer = 0.0
         self.is_thinking = False
-
 
     def navigate_to(self, world: BarWorld, target_x: float, target_y: float) -> PathResult:
         """Calcula una ruta ortogonal mediante A* hacia el destino y activa el desplazamiento.
@@ -309,7 +305,6 @@ class VisualAgent:
             self.drink_timer += dt
             self.drink_frame = int(self.drink_timer / 0.45) % 2
 
-
         # 2. Avance físico y seguimiento de ruta
         if self.is_navigating:
             new_x, new_y, new_facing, new_state, arrived = self.follower.update(self.x, self.y, dt)
@@ -373,7 +368,6 @@ class VisualAgent:
                         self.say("¿Tot bé, Don Antonio? ¿Li cal una mica d'aigua?", duration=3.0)
                     else:
                         self.say("¿Se encuentra bien, Don Antonio? ¿Le traigo algo?", duration=3.0)
-
 
     def set_facing(self, facing: str) -> None:
         """Ajusta la orientación visual del personaje ('down', 'left', 'right', 'up')."""
@@ -443,7 +437,6 @@ class VisualAgent:
                 max_width=220,
             )
 
-
         # 5. Capa de depuración técnica de navegación
         if debug:
             if self.is_navigating and self.active_waypoints:
@@ -458,9 +451,7 @@ class VisualAgent:
 
             pygame.draw.circle(surface, (0, 255, 255), (int(screen_x), int(screen_y)), 3)
 
-            collider_rect = pygame.Rect(
-                int(screen_x - 10), int(screen_y - 10), 20, 20
-            )
+            collider_rect = pygame.Rect(int(screen_x - 10), int(screen_y - 10), 20, 20)
             pygame.draw.rect(surface, (60, 255, 60), collider_rect, width=1)
 
             if font is not None:
@@ -475,7 +466,7 @@ class VisualAgent:
 
 class BartenderNPC:
     """NPC de ambientación: Manolo, el barman detrás de la barra preparando y sirviendo cócteles.
-    
+
     Espacio delimitado: Pasillo interior detrás de la barra (X=80, Y entre 160 y 420).
     """
 
@@ -519,7 +510,7 @@ class BartenderNPC:
 
     def set_voice_state(self, state: str, segment_text: Optional[str] = None) -> None:
         self.voice_state = state
-        self.is_speaking_voice = (state == "VOICE_PLAYING")
+        self.is_speaking_voice = state == "VOICE_PLAYING"
 
     def say(self, text: str, duration: float = 3.0) -> None:
         """Despliega un bocadillo cómic del camarero."""
@@ -547,13 +538,15 @@ class BartenderNPC:
     def _serve_drink(self) -> None:
         """Coloca la copa en el mostrador e invita al cliente a tomar."""
         if self.current_customer and not any(d["customer"] == self.current_customer for d in self.counter_drinks):
-            self.counter_drinks.append({
-                "x": 128.0,
-                "y": self.y,
-                "level": 1.0,
-                "customer": self.current_customer,
-                "drinking": True,
-            })
+            self.counter_drinks.append(
+                {
+                    "x": 128.0,
+                    "y": self.y,
+                    "level": 1.0,
+                    "customer": self.current_customer,
+                    "drinking": True,
+                }
+            )
             self.say("¡Aquí tienes, recién servido!", duration=2.5)
             if hasattr(self.current_customer, "drink"):
                 self.current_customer.drink(True)
@@ -602,11 +595,12 @@ class BartenderNPC:
                         if hasattr(c, "set_facing"):
                             c.set_facing("left")
                         cid = getattr(c, "agent_id", str(id(c)))
-                        if self.served_cooldown.get(cid, 0.0) <= 0.0 and not any(d.get("customer") == c for d in self.counter_drinks):
+                        if self.served_cooldown.get(cid, 0.0) <= 0.0 and not any(
+                            d.get("customer") == c for d in self.counter_drinks
+                        ):
                             self.order_drink(c)
                             self.served_cooldown[cid] = 16.0
                             break
-
 
         self.state_timer += dt
 
@@ -707,7 +701,7 @@ class BartenderNPC:
 
 class CleanerNPC:
     """NPC de ambientación: Doña Carmen, limpiando con fregona y cubo por las mesas.
-    
+
     Espacio delimitado: Área central y zona de mesas (X en [260, 580], Y en [360, 550]).
     """
 
@@ -836,7 +830,7 @@ class CleanerNPC:
 
 class CoughingManNPC:
     """NPC de ambientación: Don Antonio, señor en la esquina que tose e interactúa si se le acercan.
-    
+
     Espacio delimitado: Rincón sur-este (X en [770, 840], Y en [515, 560]).
     """
 

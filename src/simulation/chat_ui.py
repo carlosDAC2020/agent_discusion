@@ -241,7 +241,6 @@ class ChatUI:
         # ---------------------------------------------------------------------
         # 2. Historial de mensajes (área scrollable)
         # ---------------------------------------------------------------------
-        viewport_rect = pygame.Rect(0, self.header_height, self.width, self.viewport_height)
         # Creamos una subsuperficie para aislar el clip
         messages_surf = pygame.Surface((self.width, self.viewport_height))
         messages_surf.fill(COLOR_PANEL_BG)
@@ -341,7 +340,10 @@ class ChatUI:
             pygame.draw.rect(surf, tts_bg, self.btn_tts_rect, border_radius=4)
             pygame.draw.rect(surf, tts_border, self.btn_tts_rect, width=1, border_radius=4)
             lbl_s = font_small.render(tts_lbl, True, tts_text_col)
-            surf.blit(lbl_s, (self.btn_tts_rect.x + (self.btn_tts_rect.width - lbl_s.get_width()) // 2, self.btn_tts_rect.y + 4))
+            surf.blit(
+                lbl_s,
+                (self.btn_tts_rect.x + (self.btn_tts_rect.width - lbl_s.get_width()) // 2, self.btn_tts_rect.y + 4),
+            )
 
             # 2. Botón Pausa / Reanudar (tecla K)
             is_paused = getattr(audio_manager, "is_paused", False)
@@ -353,7 +355,13 @@ class ChatUI:
             pygame.draw.rect(surf, pause_bg, self.btn_pause_rect, border_radius=4)
             pygame.draw.rect(surf, pause_border, self.btn_pause_rect, width=1, border_radius=4)
             lbl_p = font_small.render(pause_lbl, True, pause_text_col)
-            surf.blit(lbl_p, (self.btn_pause_rect.x + (self.btn_pause_rect.width - lbl_p.get_width()) // 2, self.btn_pause_rect.y + 4))
+            surf.blit(
+                lbl_p,
+                (
+                    self.btn_pause_rect.x + (self.btn_pause_rect.width - lbl_p.get_width()) // 2,
+                    self.btn_pause_rect.y + 4,
+                ),
+            )
 
             # 3. Botón Parar locución (tecla X)
             speaking = audio_manager.is_speaking() or bool(getattr(audio_manager, "playback_queue", None))
@@ -365,7 +373,10 @@ class ChatUI:
             pygame.draw.rect(surf, stop_bg, self.btn_stop_rect, border_radius=4)
             pygame.draw.rect(surf, stop_border, self.btn_stop_rect, width=1, border_radius=4)
             lbl_st = font_small.render(stop_lbl, True, stop_text_col)
-            surf.blit(lbl_st, (self.btn_stop_rect.x + (self.btn_stop_rect.width - lbl_st.get_width()) // 2, self.btn_stop_rect.y + 4))
+            surf.blit(
+                lbl_st,
+                (self.btn_stop_rect.x + (self.btn_stop_rect.width - lbl_st.get_width()) // 2, self.btn_stop_rect.y + 4),
+            )
 
             # 4. Botón Silencio / Mute (tecla M)
             is_muted = getattr(audio_manager, "is_muted", False)
@@ -377,7 +388,10 @@ class ChatUI:
             pygame.draw.rect(surf, mute_bg, self.btn_mute_rect, border_radius=4)
             pygame.draw.rect(surf, mute_border, self.btn_mute_rect, width=1, border_radius=4)
             lbl_m = font_small.render(mute_lbl, True, mute_text_col)
-            surf.blit(lbl_m, (self.btn_mute_rect.x + (self.btn_mute_rect.width - lbl_m.get_width()) // 2, self.btn_mute_rect.y + 4))
+            surf.blit(
+                lbl_m,
+                (self.btn_mute_rect.x + (self.btn_mute_rect.width - lbl_m.get_width()) // 2, self.btn_mute_rect.y + 4),
+            )
 
         # 3.2. Caja de entrada de texto
         box_border = COLOR_INPUT_BORDER_FOCUS if self.input_active else COLOR_INPUT_BORDER_IDLE
@@ -395,7 +409,9 @@ class ChatUI:
 
             if self.input_active and self.cursor_visible:
                 cx = self.input_rect.x + 8 + font.size(text_str)[0] + 1
-                pygame.draw.line(surf, COLOR_INPUT_BORDER_FOCUS, (cx, self.input_rect.y + 10), (cx, self.input_rect.y + 32), 2)
+                pygame.draw.line(
+                    surf, COLOR_INPUT_BORDER_FOCUS, (cx, self.input_rect.y + 10), (cx, self.input_rect.y + 32), 2
+                )
         else:
             placeholder = "Escribe tu pregunta para Manolo..."
             ph_surf = font_small.render(placeholder, True, COLOR_TEXT_MUTED)
@@ -409,8 +425,16 @@ class ChatUI:
             btn_label = "En cola"
 
         pygame.draw.rect(surf, btn_bg, self.send_btn_rect, border_radius=5)
-        btn_txt = font_bold.render(btn_label, True, (20, 18, 22) if not coordinator.has_pending_question else (160, 150, 140))
+        btn_txt = font_bold.render(
+            btn_label, True, (20, 18, 22) if not coordinator.has_pending_question else (160, 150, 140)
+        )
         bw, bh = font_bold.size(btn_label)
-        surf.blit(btn_txt, (self.send_btn_rect.x + (self.send_btn_rect.width - bw) // 2, self.send_btn_rect.y + (self.send_btn_rect.height - bh) // 2))
+        surf.blit(
+            btn_txt,
+            (
+                self.send_btn_rect.x + (self.send_btn_rect.width - bw) // 2,
+                self.send_btn_rect.y + (self.send_btn_rect.height - bh) // 2,
+            ),
+        )
 
         return surf

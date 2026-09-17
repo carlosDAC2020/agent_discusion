@@ -18,8 +18,6 @@ from src.simulation.config import (
     GRID_COLS,
     GRID_ROWS,
     STATE_IDLE,
-    STATE_LOOKING_LEFT,
-    STATE_LOOKING_RIGHT,
     STATE_WALKING,
     TILE_SIZE,
 )
@@ -29,6 +27,7 @@ from src.simulation.world import BarWorld
 # =============================================================================
 # 1. CONVERSIÓN DE COORDENADAS Y UTILIDADES DE GRILLA
 # =============================================================================
+
 
 def pos_to_cell(x: float, y: float, tile_size: int = TILE_SIZE) -> Tuple[int, int]:
     """Convierte una coordenada lógica continua (x, y) a índices de celda (col, row)."""
@@ -58,9 +57,11 @@ def manhattan_distance(c1: int, r1: int, c2: int, r2: int) -> float:
 # 2. ESTRUCTURA DE RESULTADO DE RUTA
 # =============================================================================
 
+
 @dataclass
 class PathResult:
     """Resultado estructurado del cálculo de una ruta A*."""
+
     success: bool
     path: List[Tuple[int, int]] = field(default_factory=list)  # Celdas (col, row)
     waypoints: List[Tuple[float, float]] = field(default_factory=list)  # Puntos lógicos (x, y)
@@ -75,9 +76,9 @@ class PathResult:
 # Direcciones de movimiento ortogonal estricto: Arriba, Abajo, Izquierda, Derecha
 ORTHOGONAL_NEIGHBORS: Tuple[Tuple[int, int], ...] = (
     (0, -1),  # Arriba
-    (0, 1),   # Abajo
+    (0, 1),  # Abajo
     (-1, 0),  # Izquierda
-    (1, 0),   # Derecha
+    (1, 0),  # Derecha
 )
 
 
@@ -158,9 +159,7 @@ def find_path_astar(
             path.append(start_cell)
             path.reverse()
 
-            waypoints = [
-                cell_to_pos(c[0], c[1], world.tile_size) for c in path
-            ]
+            waypoints = [cell_to_pos(c[0], c[1], world.tile_size) for c in path]
 
             return PathResult(
                 success=True,
@@ -203,9 +202,8 @@ def find_nearest_walkable_cell(
     world: BarWorld, target_col: int, target_row: int, max_radius: int = 4
 ) -> Optional[Tuple[int, int]]:
     """Encuentra la celda transitable más cercana en distancia Manhattan a una coordenada dada."""
-    if (
-        is_cell_in_bounds(target_col, target_row, world.cols, world.rows)
-        and world.is_tile_walkable(target_col, target_row)
+    if is_cell_in_bounds(target_col, target_row, world.cols, world.rows) and world.is_tile_walkable(
+        target_col, target_row
     ):
         return target_col, target_row
 
@@ -234,6 +232,7 @@ def find_nearest_walkable_cell(
 # 4. CONTROLADOR DE MOVIMIENTO CONTINUO (PathFollower)
 # =============================================================================
 
+
 class PathFollower:
     """Gestiona el seguimiento suave de una ruta de waypoints en función del tiempo (dt)."""
 
@@ -257,9 +256,7 @@ class PathFollower:
         self.current_waypoint_idx = 0
         self.is_active = False
 
-    def update(
-        self, current_x: float, current_y: float, dt: float
-    ) -> Tuple[float, float, str, str, bool]:
+    def update(self, current_x: float, current_y: float, dt: float) -> Tuple[float, float, str, str, bool]:
         """Avanza la posición hacia el waypoint activo.
 
         Retorna:

@@ -141,9 +141,7 @@ def render_scene(
     _render_warm_lighting_overlay(surface, cam)
 
 
-def _get_or_create_static_background(
-    world: BarWorld, font: pygame.font.Font, camera: Camera25D
-) -> pygame.Surface:
+def _get_or_create_static_background(world: BarWorld, font: pygame.font.Font, camera: Camera25D) -> pygame.Surface:
     """Retorna o genera de forma determinista la superficie estática de fondo."""
     global _STATIC_BACKGROUND_SURFACE
     if _STATIC_BACKGROUND_SURFACE is None:
@@ -208,9 +206,7 @@ def _render_walls_25d(surface: pygame.Surface, camera: Camera25D) -> None:
     pygame.draw.line(surface, COLOR_WALL_BORDER, (0, wainscot_y), (LOGICAL_WIDTH, wainscot_y), 2)
     # Paneles verticales del friso
     for px in range(TILE_SIZE, LOGICAL_WIDTH - TILE_SIZE, 32):
-        pygame.draw.line(
-            surface, COLOR_WALL_WAINSCOT_DARK, (px, wainscot_y), (px, wall_h), 1
-        )
+        pygame.draw.line(surface, COLOR_WALL_WAINSCOT_DARK, (px, wainscot_y), (px, wall_h), 1)
     # Rodapié inferior
     pygame.draw.rect(surface, COLOR_WALL_BG, (0, wall_h - 4, LOGICAL_WIDTH, 4))
     pygame.draw.line(surface, (14, 8, 6), (0, wall_h - 1), (LOGICAL_WIDTH, wall_h - 1), 2)
@@ -280,10 +276,7 @@ def _render_bar_counter_and_backstage(surface: pygame.Surface, camera: Camera25D
     for sy in range(bar_y + 16, bar_y + bar_h, 32):
         pygame.draw.rect(surface, COLOR_SHELF_WOOD, (shelf_rect.x, sy, shelf_rect.width, 4))
         # Botellas de varias formas, alturas y colores en la balda
-        bottle_colors = [
-            (200, 50, 40), (45, 160, 65), (230, 190, 50),
-            (140, 65, 175), (210, 110, 30), (70, 180, 220)
-        ]
+        bottle_colors = [(200, 50, 40), (45, 160, 65), (230, 190, 50), (140, 65, 175), (210, 110, 30), (70, 180, 220)]
         for bx_offset in (2, 8, 14, 20):
             c = bottle_colors[(sy + bx_offset) % len(bottle_colors)]
             bh = 10 + ((sy + bx_offset) % 5)
@@ -302,7 +295,9 @@ def _render_bar_counter_and_backstage(surface: pygame.Surface, camera: Camera25D
         pygame.draw.rect(surface, COLOR_BAR_WOOD, panel, width=1, border_radius=2)
 
     # Reposapiés de latón en la base
-    pygame.draw.line(surface, COLOR_BAR_BRASS_RAIL, (bar_x + bar_w - 4, bar_y + 8), (bar_x + bar_w - 4, bar_y + bar_h - 8), 3)
+    pygame.draw.line(
+        surface, COLOR_BAR_BRASS_RAIL, (bar_x + bar_w - 4, bar_y + 8), (bar_x + bar_w - 4, bar_y + bar_h - 8), 3
+    )
 
     # Encimera superior de caoba pulida (brillante)
     top_rim = pygame.Rect(bar_x + 2, bar_y + 2, bar_w - 4, bar_h - 4)
@@ -376,7 +371,9 @@ def _render_table_and_chairs_25d(
     pygame.draw.rect(surface, COLOR_TABLE_TOP, top_rect, border_radius=5)
     pygame.draw.rect(surface, COLOR_TABLE_RIM, table_rect, width=2, border_radius=6)
     # Detalle de veta de madera
-    pygame.draw.line(surface, COLOR_TABLE_RIM, (top_rect.left + 8, top_rect.centery), (top_rect.right - 8, top_rect.centery), 1)
+    pygame.draw.line(
+        surface, COLOR_TABLE_RIM, (top_rect.left + 8, top_rect.centery), (top_rect.right - 8, top_rect.centery), 1
+    )
 
     # 6. Pequeño accesorio sobre la mesa (Jarra de cerveza con espuma o servilletero)
     mug_x = top_rect.centerx - 6
@@ -390,9 +387,7 @@ def _render_table_and_chairs_25d(
     _render_chair_25d(surface, tx + tw // 2, ty + th + 14, facing="north")
 
 
-def _render_chair_25d(
-    surface: pygame.Surface, cx: float, cy: float, facing: str
-) -> None:
+def _render_chair_25d(surface: pygame.Surface, cx: float, cy: float, facing: str) -> None:
     """Dibuja una silla con patas, asiento tapizado y respaldo 2.5D según orientación."""
     # Sombra en suelo
     pygame.draw.ellipse(surface, (18, 10, 8, 100), (cx - 8, cy + 2, 16, 6))
@@ -454,8 +449,12 @@ def _render_sports_lounge_25d(surface: pygame.Surface, camera: Camera25D) -> Non
     for bx in range(cushion.left + 14, cushion.right - 8, 24):
         pygame.draw.circle(surface, COLOR_SOFA_TUFT, (bx, cushion.centery), 2)
     # Reposabrazos
-    pygame.draw.rect(surface, COLOR_SOFA_BASE, (sofa_rect.left - 4, sofa_rect.top, 6, sofa_rect.height), border_radius=3)
-    pygame.draw.rect(surface, COLOR_SOFA_BASE, (sofa_rect.right - 2, sofa_rect.top, 6, sofa_rect.height), border_radius=3)
+    pygame.draw.rect(
+        surface, COLOR_SOFA_BASE, (sofa_rect.left - 4, sofa_rect.top, 6, sofa_rect.height), border_radius=3
+    )
+    pygame.draw.rect(
+        surface, COLOR_SOFA_BASE, (sofa_rect.right - 2, sofa_rect.top, 6, sofa_rect.height), border_radius=3
+    )
 
 
 def _render_wooden_barrel(surface: pygame.Surface, bx: int, by: int, camera: Camera25D) -> None:
@@ -495,7 +494,9 @@ def _render_decorations_and_signs(surface: pygame.Surface, font: pygame.font.Fon
     pygame.draw.rect(surface, (215, 175, 60), sign_rect, width=2, border_radius=4)
     title_font = pygame.font.SysFont("Arial", 14, bold=True)
     title_surf = title_font.render("BAR EL CLÁSICO", True, (250, 220, 120))
-    surface.blit(title_surf, (sign_rect.centerx - title_surf.get_width() // 2, sign_rect.centery - title_surf.get_height() // 2))
+    surface.blit(
+        title_surf, (sign_rect.centerx - title_surf.get_width() // 2, sign_rect.centery - title_surf.get_height() // 2)
+    )
 
     # 4. Plantas decorativas en macetas de terracota en las esquinas
     for px, py in (
@@ -619,7 +620,11 @@ def render_debug_overlay(
                 bdi = sel_agent.bdi_controller
                 b = bdi.beliefs
                 cur_int = bdi.current_intention
-                int_desc = f"{cur_int.desire_type.value} ({cur_int.state.value} - {cur_int.execution_phase})" if cur_int else "NINGUNA (IDLE)"
+                int_desc = (
+                    f"{cur_int.desire_type.value} ({cur_int.state.value} - {cur_int.execution_phase})"
+                    if cur_int
+                    else "NINGUNA (IDLE)"
+                )
                 line1 = f"[BDI ACTIVO] {sel_agent.name} | Intención: {int_desc} | Celda: {sel_agent.current_cell} -> Destino: {sel_agent.target_cell or 'None'}"
                 line2 = f"Sed: {b.thirst:.2f} | Energía: {b.energy:.2f} | Sociab: {b.sociability:.2f} | Dist Rival: {b.other_agent_distance:.1f}px | Replanif: {bdi.replan_count}"
                 surface.blit(font.render(line1, True, (255, 230, 100)), (10, LOGICAL_HEIGHT - bot_h + 2))

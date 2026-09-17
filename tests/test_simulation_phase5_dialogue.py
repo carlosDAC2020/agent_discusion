@@ -4,7 +4,6 @@ Verifica la arquitectura desacoplada, contratos de eventos, colas thread-safe,
 ciclo de vida del worker asíncrono, coordinación BDI y ejecución headless sin red.
 """
 
-import asyncio
 import os
 import queue
 import time
@@ -24,7 +23,6 @@ from src.simulation.bdi import (
     Intention,
     IntentionState,
     create_josep_personality,
-    create_paco_personality,
 )
 from src.simulation.config import (
     DIALOGUE_DEFAULT_MODE,
@@ -47,6 +45,7 @@ from src.simulation.world import BarWorld
 # =============================================================================
 # 1. PRUEBAS DE CONTRATOS Y ESTRUCTURAS DE DATOS
 # =============================================================================
+
 
 def test_dialogue_contracts():
     """Verifica la inmutabilidad y valores de los contratos DialogueRequest y DialogueEvent."""
@@ -103,6 +102,7 @@ def test_dialogue_event_types_and_phases():
 # =============================================================================
 # 2. PRUEBAS DE DIALOGUE ADAPTER
 # =============================================================================
+
 
 def test_dialogue_adapter_lifecycle():
     """Prueba el ciclo de vida del DialogueAdapter sin worker real."""
@@ -167,6 +167,7 @@ def test_dialogue_adapter_cancel_and_shutdown():
     """Prueba la cancelación y apagado limpio del adaptador."""
     adapter = DialogueAdapter()
     req = adapter.request_conversation("barcelona", "real_madrid")
+    assert req is not None
     assert adapter.is_busy()
 
     adapter.cancel_conversation()
@@ -181,6 +182,7 @@ def test_dialogue_adapter_cancel_and_shutdown():
 # =============================================================================
 # 3. PRUEBAS DE DIALOGUE WORKER CON GRAFO FALSO (HERMÉTICAS SIN RED)
 # =============================================================================
+
 
 class MockChunk:
     def __init__(self, content: str):
@@ -290,12 +292,20 @@ def test_dialogue_worker_streaming_execution():
         assert DialogueEventType.FINISHED in types
 
         # Verificar que el mensaje final de Barcelona contiene el texto
-        b_completed = [e for e in received_events if e.event_type == DialogueEventType.MESSAGE_COMPLETED and e.speaker_team == "barcelona"]
+        b_completed = [
+            e
+            for e in received_events
+            if e.event_type == DialogueEventType.MESSAGE_COMPLETED and e.speaker_team == "barcelona"
+        ]
         assert len(b_completed) == 1
         assert "El estilo de posesión es indiscutible." in b_completed[0].text
 
         # Verificar que Real Madrid habló después
-        rm_completed = [e for e in received_events if e.event_type == DialogueEventType.MESSAGE_COMPLETED and e.speaker_team == "real_madrid"]
+        rm_completed = [
+            e
+            for e in received_events
+            if e.event_type == DialogueEventType.MESSAGE_COMPLETED and e.speaker_team == "real_madrid"
+        ]
         assert len(rm_completed) == 1
         assert "Las 15 Champions" in rm_completed[0].text
 
@@ -347,6 +357,7 @@ def test_dialogue_worker_error_handling():
 # =============================================================================
 # 4. PRUEBAS DE ESTADO VISUAL EN VISUALAGENT
 # =============================================================================
+
 
 def test_visual_agent_dialogue_states():
     """Verifica métodos de pensamiento, streaming y bocadillos de diálogo en VisualAgent."""
@@ -405,15 +416,14 @@ def test_visual_agent_draw_with_dialogue_bubble():
 # 5. PRUEBAS DE COORDINACIÓN BDI CON DIALOGUE ADAPTER
 # =============================================================================
 
+
 def test_bdi_dialogue_adapter_coordination():
     """Prueba la vinculación del adaptador al BDI y la emisión de solicitudes en SOCIALIZE."""
     world = BarWorld()
     paco = VisualAgent("paco_madrid", "real_madrid", "Paco", 220.0, 200.0)
     josep = VisualAgent("josep_barca", "barcelona", "Josep", 200.0, 200.0)
 
-    controller = BDIController(
-        "josep_barca", "barcelona", "Josep", create_josep_personality(), seed=42
-    )
+    controller = BDIController("josep_barca", "barcelona", "Josep", create_josep_personality(), seed=42)
     mock_adapter = MagicMock(spec=DialogueAdapter)
     mock_adapter.is_busy.return_value = False
 
@@ -448,6 +458,7 @@ def test_bdi_dialogue_adapter_coordination():
 # =============================================================================
 # 6. PRUEBAS DE SIMULACIÓN HEADLESS CON ADAPTADOR INYECTADO
 # =============================================================================
+
 
 def test_headless_simulation_with_mock_dialogue_adapter():
     """Ejecuta run_simulation en modo headless con un adaptador simulado sin fallos."""

@@ -20,9 +20,7 @@ class Camera25D:
         self.offset_y: float = offset_y
         self.zoom: float = zoom
 
-    def world_to_screen(
-        self, world_x: float, world_y: float, world_z: float = 0.0
-    ) -> Tuple[float, float]:
+    def world_to_screen(self, world_x: float, world_y: float, world_z: float = 0.0) -> Tuple[float, float]:
         """Convierte coordenadas lógicas (X, Y) y elevación Z a coordenadas de renderizado en pantalla.
 
         En la proyección oblicua retro (3/4 top-down):
@@ -33,9 +31,7 @@ class Camera25D:
         screen_y = (world_y - world_z + self.offset_y) * self.zoom
         return screen_x, screen_y
 
-    def screen_to_world(
-        self, screen_x: float, screen_y: float, world_z: float = 0.0
-    ) -> Tuple[float, float]:
+    def screen_to_world(self, screen_x: float, screen_y: float, world_z: float = 0.0) -> Tuple[float, float]:
         """Convierte coordenadas de pantalla a coordenadas lógicas del mundo asumiendo elevación Z.
 
         Operación inversa determinista de world_to_screen.
@@ -52,9 +48,7 @@ class Camera25D:
         """
         return world_y + (world_z * 0.001)
 
-    def window_to_logical(
-        self, window_x: float, window_y: float, window_size: Tuple[int, int]
-    ) -> Tuple[float, float]:
+    def window_to_logical(self, window_x: float, window_y: float, window_size: Tuple[int, int]) -> Tuple[float, float]:
         """Convierte coordenadas de ventana física (posibles por redimensionamiento) a resolución lógica interna."""
         win_w, win_h = window_size
         if win_w <= 0 or win_h <= 0:
@@ -71,16 +65,12 @@ class Camera25D:
 default_camera = Camera25D()
 
 
-def world_to_screen(
-    world_x: float, world_y: float, world_z: float = 0.0
-) -> Tuple[float, float]:
+def world_to_screen(world_x: float, world_y: float, world_z: float = 0.0) -> Tuple[float, float]:
     """Función de utilidad directa para transformar coordenadas del mundo a pantalla."""
     return default_camera.world_to_screen(world_x, world_y, world_z)
 
 
-def screen_to_world(
-    screen_x: float, screen_y: float, world_z: float = 0.0
-) -> Tuple[float, float]:
+def screen_to_world(screen_x: float, screen_y: float, world_z: float = 0.0) -> Tuple[float, float]:
     """Función de utilidad directa para transformar coordenadas de pantalla al mundo."""
     return default_camera.screen_to_world(screen_x, screen_y, world_z)
 

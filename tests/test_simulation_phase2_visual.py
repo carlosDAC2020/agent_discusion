@@ -32,8 +32,6 @@ from src.simulation.camera import (
     world_to_screen,
 )
 from src.simulation.config import (
-    LOGICAL_HEIGHT,
-    LOGICAL_WIDTH,
     STATE_IDLE,
     STATE_LOOKING_LEFT,
     STATE_LOOKING_RIGHT,
@@ -46,7 +44,6 @@ from src.simulation.sprites import (
     get_cleaner_bucket_sprite,
     get_cleaner_sprite,
     get_old_man_sprite,
-    render_cough_comic_puff,
 )
 from src.simulation.world import BarWorld
 
@@ -246,8 +243,4 @@ def test_atmosphere_sprites_generation():
 def test_headless_simulation_app_execution_with_agents_and_npcs():
     """Certifica que el bucle de Pygame renderice la escena 2.5D con agentes y NPCs sin errores."""
     os.environ["SDL_VIDEODRIVER"] = "dummy"
-    try:
-        run_simulation(debug=True, max_frames=5)
-    finally:
-        if os.environ.get("SDL_VIDEODRIVER") == "dummy":
-            del os.environ["SDL_VIDEODRIVER"]
+    run_simulation(debug=True, max_frames=5)

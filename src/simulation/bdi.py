@@ -11,14 +11,13 @@ Responsabilidades:
    desacoplado del framerate de renderizado de Pygame.
 """
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from enum import Enum
 import math
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.simulation.config import (
-    BDI_DECISION_FREQUENCY,
     BDI_DECISION_INTERVAL,
     BDI_DEFAULT_SEED,
     BDI_DESIRE_COOLDOWN,
@@ -40,16 +39,16 @@ from src.simulation.config import (
     BDI_THIRST_QUENCH_AMOUNT,
     BDI_UTILITY_PREEMPT_THRESHOLD,
     DIALOGUE_POST_COOLDOWN,
-    TILE_SIZE,
 )
 
-from src.simulation.navigation import cell_to_pos, find_nearest_walkable_cell, pos_to_cell
+from src.simulation.navigation import cell_to_pos, pos_to_cell
 from src.simulation.world import BarWorld
 
 
 # =============================================================================
 # 1. MODELO DE CREENCIAS (BELIEFS)
 # =============================================================================
+
 
 @dataclass
 class AgentBeliefs:
@@ -111,20 +110,23 @@ class AgentBeliefs:
 # 2. MODELO DE DESEOS (DESIRES) Y PERSONALIDADES
 # =============================================================================
 
+
 class DesireType(str, Enum):
     """Tipos de deseos u objetivos posibles en el bar."""
-    DRINK = "DRINK"            # Ir a la barra a saciar la sed
-    REST = "REST"              # Sentarse en mesa o sofá a recuperar energía
-    EXPLORE = "EXPLORE"        # Inspeccionar zonas del bar según personalidad
-    SOCIALIZE = "SOCIALIZE"    # Acercarse al otro agente manteniendo distancia social
-    RECOVER = "RECOVER"        # Recuperarse de un atasco o error de navegación
+
+    DRINK = "DRINK"  # Ir a la barra a saciar la sed
+    REST = "REST"  # Sentarse en mesa o sofá a recuperar energía
+    EXPLORE = "EXPLORE"  # Inspeccionar zonas del bar según personalidad
+    SOCIALIZE = "SOCIALIZE"  # Acercarse al otro agente manteniendo distancia social
+    RECOVER = "RECOVER"  # Recuperarse de un atasco o error de navegación
 
 
 @dataclass
 class Desire:
     """Representa un deseo candidato evaluado en cada ciclo de deliberación."""
+
     desire_type: DesireType
-    intensity: float = 0.0      # Intensidad/utilidad calculada [0.0 a 1.0+]
+    intensity: float = 0.0  # Intensidad/utilidad calculada [0.0 a 1.0+]
     priority: float = 1.0
     cooldown_timer: float = 0.0  # Temporizador activo de cooldown
 
@@ -132,11 +134,12 @@ class Desire:
 @dataclass
 class AgentPersonality:
     """Perfil comportamental local que diferencia las preferencias espaciales de cada agente."""
-    bar_affinity: float         # Afinidad por la barra y taburetes
-    tv_affinity: float          # Afinidad por la zona deportiva y TV
-    explore_affinity: float     # Tendencia general a explorar mesas
-    sociability_affinity: float # Tendencia a buscar proximidad social
-    preferred_pois: List[str]   # POIs de mayor predilección individual
+
+    bar_affinity: float  # Afinidad por la barra y taburetes
+    tv_affinity: float  # Afinidad por la zona deportiva y TV
+    explore_affinity: float  # Tendencia general a explorar mesas
+    sociability_affinity: float  # Tendencia a buscar proximidad social
+    preferred_pois: List[str]  # POIs de mayor predilección individual
 
 
 def create_josep_personality() -> AgentPersonality:
@@ -178,13 +181,14 @@ def create_paco_personality() -> AgentPersonality:
     )
 
 
-
 # =============================================================================
 # 3. MODELO DE INTENCIONES (INTENTIONS) Y ESTADOS
 # =============================================================================
 
+
 class IntentionState(str, Enum):
     """Estados del ciclo de vida de una intención activa."""
+
     PENDING = "PENDING"
     ACTIVE = "ACTIVE"
     COMPLETED = "COMPLETED"
@@ -196,6 +200,7 @@ class IntentionState(str, Enum):
 @dataclass
 class Intention:
     """Intención activa seleccionada por el agente, respaldada por un plan de acción concreto."""
+
     intention_id: str
     desire_type: DesireType
     plan_name: str
@@ -224,6 +229,7 @@ class Intention:
 # =============================================================================
 # 4. CONTROLADOR BDI Y CICLO COGNITIVO
 # =============================================================================
+
 
 class BDIController:
     """Controlador cognitivo desacoplado que gobierna el ciclo de deliberación y ejecución BDI."""
@@ -262,9 +268,7 @@ class BDIController:
         )
 
         # Diccionario de deseos
-        self.desires: Dict[DesireType, Desire] = {
-            d_type: Desire(desire_type=d_type) for d_type in DesireType
-        }
+        self.desires: Dict[DesireType, Desire] = {d_type: Desire(desire_type=d_type) for d_type in DesireType}
 
         # Intención actualmente en curso
         self.current_intention: Optional[Intention] = None
@@ -328,7 +332,6 @@ class BDIController:
     def detach_dialogue_adapter(self) -> None:
         """Desconecta el adaptador de diálogo regresando al modo BDI local."""
         self.dialogue_adapter = None
-
 
     # -------------------------------------------------------------------------
     # PASO 1: PERCEPCIÓN DEL MUNDO Y ACTUALIZACIÓN DE CREENCIAS
@@ -419,11 +422,8 @@ class BDIController:
         if drink_cd > 0.0:
             self.desires[DesireType.DRINK].intensity = 0.0
         else:
-            thirst_weight = b.thirst ** 1.2
-            self.desires[DesireType.DRINK].intensity = (
-                thirst_weight * 1.20 + p.bar_affinity * 0.25
-            )
-
+            thirst_weight = b.thirst**1.2
+            self.desires[DesireType.DRINK].intensity = thirst_weight * 1.20 + p.bar_affinity * 0.25
 
         # 3. DESEO: DESCANSAR (Impulsado por fatiga / baja energía + afinidad de asiento/TV)
         rest_cd = self.desires[DesireType.REST].cooldown_timer
@@ -432,9 +432,7 @@ class BDIController:
         else:
             fatigue = (1.0 - b.energy) ** 1.5
             # Paco tiene un bono si va a descansar a la zona de TV
-            self.desires[DesireType.REST].intensity = (
-                fatigue * 1.15 + p.tv_affinity * 0.30
-            )
+            self.desires[DesireType.REST].intensity = fatigue * 1.15 + p.tv_affinity * 0.30
 
         # 4. DESEO: SOCIALIZAR / ACERCARSE AL OTRO AGENTE
         soc_cd = self.desires[DesireType.SOCIALIZE].cooldown_timer
@@ -463,9 +461,7 @@ class BDIController:
     def select_intention(self, world: BarWorld, other_agent: Optional[Any]) -> None:
         """Selecciona la mejor intención respetando la persistencia y umbrales de preempción."""
         # 1. Encontrar el deseo de mayor intensidad
-        best_type, best_desire = max(
-            self.desires.items(), key=lambda item: item[1].intensity
-        )
+        best_type, best_desire = max(self.desires.items(), key=lambda item: item[1].intensity)
 
         # 2. Si ya hay una intención activa, evaluar si puede ser interrumpida o debe persistir
         if self.current_intention is not None and self.current_intention.state == IntentionState.ACTIVE:
@@ -486,13 +482,12 @@ class BDIController:
             return  # Ningún deseo con suficiente intensidad
 
         self.intention_counter += 1
-        new_int = self._create_intention_for_desire(
-            best_type, best_desire.intensity, world, other_agent
-        )
+        new_int = self._create_intention_for_desire(best_type, best_desire.intensity, world, other_agent)
         if new_int is not None:
             self.current_intention = new_int
             self.beliefs.time_since_last_decision = 0.0
             from src.simulation.debug_logger import debug_log
+
             debug_log(
                 "BDI",
                 "INTENTION_SELECTED",
@@ -537,8 +532,10 @@ class BDIController:
                 poi_choice = self.random.choice(candidates if candidates else tv_seats)
             else:
                 table_seats = [
-                    "table_central_1_seat_west", "table_central_1_seat_east",
-                    "table_central_2_seat_west", "table_side_1_seat_north"
+                    "table_central_1_seat_west",
+                    "table_central_1_seat_east",
+                    "table_central_2_seat_west",
+                    "table_side_1_seat_north",
                 ]
                 candidates = [s for s in table_seats if s not in self.recent_pois[-2:]]
                 poi_choice = self.random.choice(candidates if candidates else table_seats)
@@ -592,7 +589,6 @@ class BDIController:
                         cooldown=DIALOGUE_POST_COOLDOWN,
                     )
 
-
         elif desire_type == DesireType.RECOVER:
             # Cancelar y retirarse al spawn personal
             spawn_name = f"{self.team}_spawn"
@@ -611,9 +607,7 @@ class BDIController:
 
         return None
 
-    def _find_social_position_near(
-        self, other_agent: Any, world: BarWorld
-    ) -> Optional[Tuple[float, float]]:
+    def _find_social_position_near(self, other_agent: Any, world: BarWorld) -> Optional[Tuple[float, float]]:
         """Encuentra una celda transitable que mantenga la distancia social y no solape con el rival."""
         from src.simulation.debug_logger import debug_log
 
@@ -723,10 +717,9 @@ class BDIController:
                     if hasattr(agent, "drink") and not agent.is_drinking:
                         agent.drink(True)
 
-
             elif cur.desire_type == DesireType.REST:
                 if self.personality.tv_affinity > 0.6:
-                    agent.set_facing("up")    # Mirar hacia el televisor
+                    agent.set_facing("up")  # Mirar hacia el televisor
                 if hasattr(agent, "sit"):
                     agent.sit(True)
                 if cur.action_timer < 0.35 and not getattr(agent, "active_bubble_text", None):
@@ -746,8 +739,8 @@ class BDIController:
                 if hasattr(other_agent, "set_facing"):
                     other_agent.set_facing("left" if dx > 0 else "right")
 
-                in_social_range = (dist_now <= BDI_MAX_SOCIAL_DISTANCE + 16.0)
-                both_stopped = (not agent.is_navigating and not other_agent.is_navigating)
+                in_social_range = dist_now <= BDI_MAX_SOCIAL_DISTANCE + 16.0
+                both_stopped = not agent.is_navigating and not other_agent.is_navigating
 
                 debug_log_state(
                     f"{self.agent_id}_social_action",
@@ -824,7 +817,6 @@ class BDIController:
                                 agent.say("—¡Hola Paco! ¿Cómo ves al Barça hoy?")
                             else:
                                 agent.say("—¡Qué tal Josep! Todo listo para debatir.")
-
 
             elif cur.desire_type == DesireType.EXPLORE:
                 # Si está cerca de la esquina de Don Antonio (X > 720, Y > 480)

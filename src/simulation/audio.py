@@ -13,7 +13,7 @@ import io
 import queue
 import re
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 from src.simulation.audio_config import (
     AUDIO_BUFFER_SIZE,
@@ -25,7 +25,6 @@ from src.simulation.audio_config import (
     MASTER_VOLUME,
     MUSIC_VOLUME,
     TTS_MAX_SEGMENT_CHARACTERS,
-    TTS_MIN_SEGMENT_CHARACTERS,
     VOICE_VOLUME,
     get_voice_profile,
 )
@@ -38,6 +37,7 @@ from src.simulation.debug_logger import debug_log
 # 1. SEGMENTADOR DE TEXTO (TEXT SEGMENTER)
 # =============================================================================
 
+
 class TextSegmenter:
     """Divide mensajes completos en oraciones naturales preservando la coherencia semántica."""
 
@@ -49,7 +49,7 @@ class TextSegmenter:
             return []
 
         # Expresión regular que divide por puntos, signos de exclamación/interrogación, dos puntos o saltos
-        delimiters = r'([.!?:\n;]+)'
+        delimiters = r"([.!?:\n;]+)"
         raw_parts = re.split(delimiters, clean_text)
 
         tokens: List[str] = []
@@ -100,6 +100,7 @@ class TextSegmenter:
 # =============================================================================
 # 2. GESTOR DE AUDIO PARA PYGAME (AUDIO MANAGER)
 # =============================================================================
+
 
 class AudioManager:
     """Fachada de audio principal ejecutada en el bucle de Pygame.
@@ -313,6 +314,7 @@ class AudioManager:
                 if next_ev.wav_bytes:
                     try:
                         import pygame
+
                         sound = pygame.mixer.Sound(io.BytesIO(next_ev.wav_bytes))
                         effective_vol = 0.0 if self.is_muted else (self.master_volume * self.voice_volume)
                         sound.set_volume(effective_vol)
@@ -514,6 +516,7 @@ class AudioManager:
         if self.audio_available:
             try:
                 import pygame
+
                 if pygame.mixer.get_init():
                     pygame.mixer.quit()
             except Exception:

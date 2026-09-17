@@ -42,8 +42,8 @@ TTS_MIN_SEGMENT_CHARACTERS: int = int(os.getenv("TTS_MIN_SEGMENT_CHARACTERS", "1
 # 3. Parámetros de Audio PCM y Pygame Mixer
 # -----------------------------------------------------------------------------
 AUDIO_SAMPLE_RATE: int = int(os.getenv("AUDIO_SAMPLE_RATE", "24000"))
-AUDIO_CHANNELS: int = int(os.getenv("AUDIO_CHANNELS", "1"))           # Mono
-AUDIO_SAMPLE_WIDTH: int = 2                                          # 16-bit PCM (2 bytes/muestra)
+AUDIO_CHANNELS: int = int(os.getenv("AUDIO_CHANNELS", "1"))  # Mono
+AUDIO_SAMPLE_WIDTH: int = 2  # 16-bit PCM (2 bytes/muestra)
 AUDIO_BUFFER_SIZE: int = int(os.getenv("AUDIO_BUFFER_SIZE", "1024"))
 
 # Volúmenes por defecto (0.0 a 1.0)
@@ -59,6 +59,7 @@ MASTER_VOLUME: float = float(os.getenv("MASTER_VOLUME", "1.00"))
 @dataclass(frozen=True)
 class VoiceProfile:
     """Especificación fonética y de configuración para un personaje."""
+
     speaker_id: str
     voice_name: str
     fallback_voice: str = GEMINI_TTS_FALLBACK_VOICE

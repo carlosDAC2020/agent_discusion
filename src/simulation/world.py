@@ -31,9 +31,7 @@ class BarWorld:
         self.bounds = WorldBounds(0.0, 0.0, float(self.width), float(self.height))
 
         # Matriz booleana de transitabilidad: True = caminable, False = bloqueado
-        self.walkable: List[List[bool]] = [
-            [True for _ in range(self.cols)] for _ in range(self.rows)
-        ]
+        self.walkable: List[List[bool]] = [[True for _ in range(self.cols)] for _ in range(self.rows)]
 
         # Lista de obstáculos rectangulares
         self.obstacles: List[Obstacle] = []
@@ -62,9 +60,7 @@ class BarWorld:
             self.walkable[r][0] = False
 
         # Pared lateral derecha
-        self._add_obstacle(
-            "wall_right", "wall", self.width - self.tile_size, 0, self.tile_size, self.height
-        )
+        self._add_obstacle("wall_right", "wall", self.width - self.tile_size, 0, self.tile_size, self.height)
         for r in range(self.rows):
             self.walkable[r][self.cols - 1] = False
 
@@ -75,9 +71,7 @@ class BarWorld:
         door_x2 = (door_col_end + 1) * self.tile_size
 
         # Muro inferior izquierdo
-        self._add_obstacle(
-            "wall_bottom_left", "wall", 0, self.height - self.tile_size, door_x1, self.tile_size
-        )
+        self._add_obstacle("wall_bottom_left", "wall", 0, self.height - self.tile_size, door_x1, self.tile_size)
         for c in range(door_col_start):
             self.walkable[self.rows - 1][c] = False
 
@@ -359,4 +353,3 @@ class BarWorld:
             if poi:
                 spawns[k] = (poi.x, poi.y)
         return spawns
-

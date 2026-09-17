@@ -35,40 +35,30 @@ Valida exhaustivamente los 30 requisitos BDI:
 
 import math
 import os
-import random
-import pytest
 
 from src.simulation.agent import VisualAgent
 from src.simulation.app import create_initial_agents, run_simulation
 from src.simulation.bdi import (
     AgentBeliefs,
-    AgentPersonality,
     BDIController,
-    Desire,
     DesireType,
     Intention,
     IntentionState,
-    create_josep_personality,
-    create_paco_personality,
 )
 from src.simulation.config import (
-    BDI_DECISION_FREQUENCY,
     BDI_DECISION_INTERVAL,
     BDI_DESIRE_COOLDOWN,
     BDI_MAX_SOCIAL_DISTANCE,
-    BDI_MIN_INTENTION_DURATION,
     BDI_MIN_SOCIAL_DISTANCE,
-    BDI_UTILITY_PREEMPT_THRESHOLD,
-    STATE_IDLE,
-    STATE_WALKING,
 )
-from src.simulation.navigation import cell_to_pos, pos_to_cell
+from src.simulation.navigation import pos_to_cell
 from src.simulation.world import BarWorld
 
 
 # =============================================================================
 # 1, 2 Y 3. CREENCIAS Y NECESIDADES
 # =============================================================================
+
 
 def test_1_initial_beliefs_valid_and_normalized():
     """Valida la inicialización de creencias dentro del rango [0.0, 1.0]."""
@@ -109,6 +99,7 @@ def test_3_beliefs_clamping_limits():
 # 4 Y 5. PERCEPCIÓN ESPACIAL Y RIVAL
 # =============================================================================
 
+
 def test_4_spatial_perception_rival_distance():
     """Valida el cálculo de distancia euclídea al otro agente en perceive."""
     world = BarWorld()
@@ -137,6 +128,7 @@ def test_5_spatial_perception_rival_visibility_and_none():
 # =============================================================================
 # 6, 7, 8, 9 Y 10. DESEOS Y PERSONALIDADES (JOSEP VS PACO)
 # =============================================================================
+
 
 def test_6_desire_utility_calculation():
     """Valida el cálculo de intensidades de deseos tras evaluate_desires."""
@@ -208,6 +200,7 @@ def test_10_socialize_activates_when_sociability_high():
 # =============================================================================
 # 11, 12, 13 Y 14. PREVENCIÓN DE OSCILACIÓN Y PERSISTENCIA DE INTENCIONES
 # =============================================================================
+
 
 def test_11_preemption_threshold_delta():
     """No permite cambiar de intención si la nueva utilidad no supera el delta mínimo."""
@@ -304,6 +297,7 @@ def test_14_recent_poi_memory_penalization():
 # 15, 16, 17, 18, 19 Y 20. PLANES Y EJECUCIÓN
 # =============================================================================
 
+
 def test_15_plan_drink_execution():
     """Plan Drink: avanza a la barra, fase de acción, reduce sed y se completa."""
     world = BarWorld()
@@ -381,7 +375,6 @@ def test_18_plan_socialize_keeps_respectful_distance():
     """Plan Socialize busca una celda respetando la distancia social [40, 96] px."""
     world = BarWorld()
     paco = VisualAgent("paco", "real_madrid", "Paco", 400.0, 300.0)
-    josep = VisualAgent("josep", "barcelona", "Josep", 200.0, 300.0)
     bdi = BDIController("josep", "barcelona", "Josep")
 
     target_xy = bdi._find_social_position_near(paco, world)
@@ -429,6 +422,7 @@ def test_20_plan_recover_restores_error():
 # =============================================================================
 # 21, 22 Y 23. CICLO DE VIDA, FALLOS Y CANCELACIÓN DE INTENCIONES
 # =============================================================================
+
 
 def test_21_intention_state_transitions():
     """Valida la transición formal: PENDING -> ACTIVE -> COMPLETED."""
@@ -497,6 +491,7 @@ def test_23_manual_cancel_intention():
 # 24, 25 Y 26. DESACOPLAMIENTO TEMPORAL Y CONTROL EN APP
 # =============================================================================
 
+
 def test_24_temporal_decoupling_deliberation_rate():
     """La deliberación se ejecuta a 4 Hz (cada 0.25s) y no en cada frame físico."""
     world = BarWorld()
@@ -550,6 +545,7 @@ def test_26_bdi_and_demo_mutual_exclusion():
 # 27, 28, 29 Y 30. DETERMINISMO, MODO HEADLESS, RETROCOMPATIBILIDAD Y AISLAMIENTO
 # =============================================================================
 
+
 def test_27_determinism_with_fixed_seed():
     """Dos controladores con la misma semilla producen la misma selección de POI."""
     world = BarWorld()
@@ -588,7 +584,6 @@ def test_29_normal_mode_agents_remain_stationary():
     assert (paco.x, paco.y) == pos_paco_initial
     assert josep.is_walking is False
     assert paco.is_walking is False
-
 
 
 def test_30_conversational_subsystems_untouched():

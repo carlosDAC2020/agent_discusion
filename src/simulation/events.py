@@ -50,12 +50,7 @@ class Obstacle:
 
     def collides_with_rect(self, rx: float, ry: float, rw: float, rh: float) -> bool:
         """Determina si un rectángulo colisiona con este obstáculo (AABB collision)."""
-        return not (
-            rx + rw <= self.x
-            or rx >= self.x + self.width
-            or ry + rh <= self.y
-            or ry >= self.y + self.height
-        )
+        return not (rx + rw <= self.x or rx >= self.x + self.width or ry + rh <= self.y or ry >= self.y + self.height)
 
 
 @dataclass(frozen=True)

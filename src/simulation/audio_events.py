@@ -17,6 +17,7 @@ from src.simulation.audio_config import VoiceProfile
 
 class AudioEventType(str, Enum):
     """Tipos de eventos emitidos en el ciclo de audio."""
+
     VOICE_REQUESTED = "VOICE_REQUESTED"
     VOICE_READY = "VOICE_READY"
     VOICE_STARTED = "VOICE_STARTED"
@@ -31,6 +32,7 @@ class AudioEventType(str, Enum):
 
 class VisualVoiceState(str, Enum):
     """Estados visuales del personaje respecto a la locución."""
+
     IDLE = "IDLE"
     VOICE_PENDING = "VOICE_PENDING"
     VOICE_PLAYING = "VOICE_PLAYING"
@@ -41,10 +43,11 @@ class VisualVoiceState(str, Enum):
 @dataclass(frozen=True)
 class VoiceSegmentRequest:
     """Solicitud tipada e inmutable de síntesis de voz enviada al AudioWorker."""
+
     request_id: str
     conversation_id: str
     turn_id: str
-    speaker: str               # "manolo", "josep", "paco"
+    speaker: str  # "manolo", "josep", "paco"
     text_segment: str
     segment_index: int
     total_segments: int
@@ -56,6 +59,7 @@ class VoiceSegmentRequest:
 @dataclass
 class AudioEvent:
     """Evento del subsistema de audio transmitido hacia el bucle de Pygame."""
+
     event_type: AudioEventType
     audio_id: str
     conversation_id: str

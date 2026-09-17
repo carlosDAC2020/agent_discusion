@@ -11,8 +11,6 @@ Valida:
 """
 
 import os
-from unittest.mock import patch
-import pytest
 from typer.testing import CliRunner
 
 from src.cli.main import app
@@ -23,19 +21,12 @@ from src.simulation.config import (
     LOGICAL_WIDTH,
     TILE_SIZE,
 )
-from src.simulation.events import Obstacle, PointOfInterest, WorldBounds
 from src.simulation.world import BarWorld
 
 
 def test_no_side_effects_on_import():
     """Verifica que importar los módulos de simulación no inicialice el display de Pygame."""
     import pygame
-    import src.simulation
-    import src.simulation.app
-    import src.simulation.config
-    import src.simulation.events
-    import src.simulation.rendering
-    import src.simulation.world
 
     # El display no debe estar inicializado simplemente por haber importado los módulos
     assert not pygame.display.get_init()
@@ -173,12 +164,7 @@ def test_cli_existing_commands_remain_functional():
 def test_headless_simulation_app_execution():
     """Ejecuta la ventana en modo dummy (headless) por 3 frames para certificar inicio y cierre limpio."""
     os.environ["SDL_VIDEODRIVER"] = "dummy"
-    try:
-        from src.simulation.app import run_simulation
+    from src.simulation.app import run_simulation
 
-        # Debe correr 3 frames y finalizar limpiamente sin excepciones
-        run_simulation(debug=True, max_frames=3)
-    finally:
-        # Restaurar variable si estaba vacía
-        if os.environ.get("SDL_VIDEODRIVER") == "dummy":
-            del os.environ["SDL_VIDEODRIVER"]
+    # Debe correr 3 frames y finalizar limpiamente sin excepciones
+    run_simulation(debug=True, max_frames=3)

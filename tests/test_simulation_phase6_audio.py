@@ -16,8 +16,7 @@ import os
 import queue
 import time
 import wave
-from typing import Any, List
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -32,13 +31,11 @@ from src.simulation.audio_config import (
     AUDIO_SAMPLE_RATE,
     GEMINI_TTS_MODEL,
     CHARACTER_VOICES,
-    VoiceProfile,
     get_voice_profile,
 )
 from src.simulation.audio_events import (
     AudioEvent,
     AudioEventType,
-    VisualVoiceState,
     VoiceSegmentRequest,
 )
 from src.simulation.audio_worker import (
@@ -53,14 +50,14 @@ from src.simulation.audio import (
     TextSegmenter,
 )
 from src.simulation.agent import VisualAgent, BartenderNPC
-from src.simulation.conversation import ConversationCoordinator, ConversationCoordinatorState
+from src.simulation.conversation import ConversationCoordinator
 from src.simulation.dialogue import DialogueEvent, DialogueEventType
-from src.simulation.world import BarWorld
 
 
 # =============================================================================
 # 1. Configuración, perfiles y contratos
 # =============================================================================
+
 
 def test_1_audio_config_defaults():
     """Verifica que la configuración por defecto respete las restricciones de la Fase 6."""
@@ -121,6 +118,7 @@ def test_3_audio_event_types_and_dataclasses():
 # 2. Conversión pura PCM a RIFF WAV en memoria
 # =============================================================================
 
+
 def test_4_pcm_to_wav_bytes_valid_conversion():
     """Verifica que pcm_to_wav_bytes genera un WAV canónico RIFF legible por el módulo wave."""
     # 0.1s de tono / silencio en PCM 16-bit 24kHz mono = 24000 * 2 * 0.1 = 4800 bytes
@@ -148,6 +146,7 @@ def test_5_pcm_to_wav_bytes_empty_input():
 # =============================================================================
 # 3. Segmentación textual adaptativa (TextSegmenter)
 # =============================================================================
+
 
 def test_6_text_segmenter_short_text():
     """Un texto corto menor a 140 caracteres no debe ser fragmentado."""
@@ -180,6 +179,7 @@ def test_8_text_segmenter_long_clause_split():
 # =============================================================================
 # 4. Proveedores TTS y AudioWorker (hilo secundario sin Pygame)
 # =============================================================================
+
 
 def test_9_mock_tts_provider_synthesizes_pcm():
     """MockTTSProvider genera audio PCM determinista y proporcional al texto."""
@@ -311,6 +311,7 @@ def test_14_audio_worker_queue_drain_on_cancel():
 # =============================================================================
 # 5. AudioManager (FIFO en hilo principal, control de canal y volumen)
 # =============================================================================
+
 
 def test_15_audio_manager_initialization_with_mock():
     """Verifica inicialización limpia de AudioManager con MockTTSProvider."""
@@ -456,6 +457,7 @@ def test_21_audio_manager_cancel_current_speech():
 # =============================================================================
 # 6. Integración con VisualAgent, BartenderNPC y ConversationCoordinator
 # =============================================================================
+
 
 def test_22_visual_agent_voice_state_integration():
     """Verifica que VisualAgent soporte y reporte estados de voz."""

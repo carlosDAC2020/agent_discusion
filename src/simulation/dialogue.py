@@ -22,8 +22,10 @@ from src.simulation.config import (
 # 1. CONTRATOS DE DATOS Y ENUMS
 # =============================================================================
 
+
 class DialogueEventType(str, Enum):
     """Tipos de eventos emitidos por el worker de LangGraph hacia Pygame."""
+
     STARTED = "STARTED"
     TURN_STARTED = "TURN_STARTED"
     TEXT_CHUNK = "TEXT_CHUNK"
@@ -37,6 +39,7 @@ class DialogueEventType(str, Enum):
 
 class ConversationPhase(str, Enum):
     """Fases del ciclo de vida visual de una conversación en Pygame."""
+
     IDLE = "IDLE"
     APPROACHING = "APPROACHING"
     READY = "READY"
@@ -50,6 +53,7 @@ class ConversationPhase(str, Enum):
 @dataclass(frozen=True)
 class DialogueRequest:
     """Solicitud tipada e inmutable de debate enviada al worker de LangGraph."""
+
     conversation_id: str
     initiator_team: str
     receiver_team: str
@@ -63,6 +67,7 @@ class DialogueRequest:
 @dataclass(frozen=True)
 class DialogueEvent:
     """Evento serializable y desacoplado emitido desde el worker hacia Pygame."""
+
     conversation_id: str
     event_type: DialogueEventType
     speaker_team: Optional[str] = None
@@ -99,9 +104,10 @@ def get_random_debate_topic(rng: Optional[random.Random] = None) -> str:
 # 3. ADAPTADOR DE DIÁLOGO PARA PYGAME
 # =============================================================================
 
+
 class DialogueAdapter:
     """Adaptador de alto nivel para gestionar la comunicación entre Pygame y LangGraph.
-    
+
     Asegura que Pygame nunca realice llamadas de red, mantenga 60 FPS y
     consuma eventos a través de colas seguras sin esperas bloqueantes.
     """
@@ -124,6 +130,7 @@ class DialogueAdapter:
             self.worker = self.worker_factory(self.request_queue, self.event_queue)
         else:
             from src.simulation.dialogue_worker import DialogueWorker
+
             self.worker = DialogueWorker(self.request_queue, self.event_queue)
 
         self.worker.start()
@@ -138,7 +145,7 @@ class DialogueAdapter:
         style: str = DIALOGUE_DEFAULT_STYLE,
     ) -> Optional[DialogueRequest]:
         """Envía una nueva solicitud de conversación si no hay otra en curso.
-        
+
         Retorna la solicitud generada o None si ya hay una conversación activa.
         """
         from src.simulation.debug_logger import debug_log

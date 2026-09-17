@@ -7,17 +7,7 @@ import pygame
 import pytest
 
 from src.simulation.agent import BartenderNPC, VisualAgent
-from src.simulation.camera import Camera25D, default_camera
 from src.simulation.chat_ui import ChatUI
-from src.simulation.config import (
-    CHAT_PANEL_WIDTH,
-    DEBATE_FINISHED_HOLD_SECONDS,
-    LOGICAL_HEIGHT,
-    LOGICAL_WIDTH,
-    MANOLO_QUESTION_HOLD_SECONDS,
-    WINDOW_HEIGHT,
-    WINDOW_WIDTH,
-)
 from src.simulation.conversation import (
     ChatMessage,
     ConversationCoordinator,
@@ -43,6 +33,7 @@ def init_headless_pygame():
 # -----------------------------------------------------------------------------
 # 1. Contratos y Creación de Mensajes
 # -----------------------------------------------------------------------------
+
 
 def test_chat_message_creation():
     """Verifica la creación correcta de mensajes con los roles autorizados."""
@@ -77,11 +68,15 @@ def test_token_streaming_updates_existing_message():
 
     # Streaming token a token
     coord.process_dialogue_event(
-        DialogueEvent(conversation_id="c1", event_type=DialogueEventType.TEXT_CHUNK, speaker_team="barcelona", text="Hola "),
+        DialogueEvent(
+            conversation_id="c1", event_type=DialogueEventType.TEXT_CHUNK, speaker_team="barcelona", text="Hola "
+        ),
         agents,
     )
     coord.process_dialogue_event(
-        DialogueEvent(conversation_id="c1", event_type=DialogueEventType.TEXT_CHUNK, speaker_team="barcelona", text="Paco."),
+        DialogueEvent(
+            conversation_id="c1", event_type=DialogueEventType.TEXT_CHUNK, speaker_team="barcelona", text="Paco."
+        ),
         agents,
     )
 
@@ -101,11 +96,21 @@ def test_message_completed_marks_complete():
         agents,
     )
     coord.process_dialogue_event(
-        DialogueEvent(conversation_id="c1", event_type=DialogueEventType.TEXT_CHUNK, speaker_team="barcelona", text="Texto inicial"),
+        DialogueEvent(
+            conversation_id="c1",
+            event_type=DialogueEventType.TEXT_CHUNK,
+            speaker_team="barcelona",
+            text="Texto inicial",
+        ),
         agents,
     )
     coord.process_dialogue_event(
-        DialogueEvent(conversation_id="c1", event_type=DialogueEventType.MESSAGE_COMPLETED, speaker_team="barcelona", text="Texto final consolidado."),
+        DialogueEvent(
+            conversation_id="c1",
+            event_type=DialogueEventType.MESSAGE_COMPLETED,
+            speaker_team="barcelona",
+            text="Texto final consolidado.",
+        ),
         agents,
     )
 
@@ -125,13 +130,21 @@ def test_history_persistence_multiple_rounds():
 
     # Turno 1: Josep
     coord.process_dialogue_event(DialogueEvent("c1", DialogueEventType.TURN_STARTED, "barcelona"), agents)
-    coord.process_dialogue_event(DialogueEvent("c1", DialogueEventType.TEXT_CHUNK, "barcelona", text="Mensaje 1"), agents)
-    coord.process_dialogue_event(DialogueEvent("c1", DialogueEventType.MESSAGE_COMPLETED, "barcelona", text="Mensaje 1"), agents)
+    coord.process_dialogue_event(
+        DialogueEvent("c1", DialogueEventType.TEXT_CHUNK, "barcelona", text="Mensaje 1"), agents
+    )
+    coord.process_dialogue_event(
+        DialogueEvent("c1", DialogueEventType.MESSAGE_COMPLETED, "barcelona", text="Mensaje 1"), agents
+    )
 
     # Turno 2: Paco
     coord.process_dialogue_event(DialogueEvent("c1", DialogueEventType.TURN_STARTED, "real_madrid"), agents)
-    coord.process_dialogue_event(DialogueEvent("c1", DialogueEventType.TEXT_CHUNK, "real_madrid", text="Mensaje 2"), agents)
-    coord.process_dialogue_event(DialogueEvent("c1", DialogueEventType.MESSAGE_COMPLETED, "real_madrid", text="Mensaje 2"), agents)
+    coord.process_dialogue_event(
+        DialogueEvent("c1", DialogueEventType.TEXT_CHUNK, "real_madrid", text="Mensaje 2"), agents
+    )
+    coord.process_dialogue_event(
+        DialogueEvent("c1", DialogueEventType.MESSAGE_COMPLETED, "real_madrid", text="Mensaje 2"), agents
+    )
 
     assert len(coord.messages) == 2
     assert coord.messages[0].author == "Josep (Barça)"
@@ -143,6 +156,7 @@ def test_history_persistence_multiple_rounds():
 # -----------------------------------------------------------------------------
 # 2. Entrada de Usuario y Política de Preguntas Concurrentes
 # -----------------------------------------------------------------------------
+
 
 def test_user_question_submission():
     """Verifica que una pregunta enviada pase al coordinador y genere registros."""
@@ -198,6 +212,7 @@ def test_empty_question_rejected():
 # -----------------------------------------------------------------------------
 # 3. Máquina de Estados y Bloqueo BDI
 # -----------------------------------------------------------------------------
+
 
 def test_state_machine_agents_going_to_bar_and_manolo_asking():
     """Verifica la transición de AGENTS_GOING_TO_BAR a MANOLO_ASKING al llegar a la barra."""
@@ -312,6 +327,7 @@ def test_release_lock_when_no_pending_questions():
 # 4. Geometría y Sujeción de Globos (clamp_bubble_rect)
 # -----------------------------------------------------------------------------
 
+
 def test_clamp_bubble_rect_top_overflow_flips_down():
     """Si el personaje está cerca del borde superior, el bocadillo se voltea abajo con tail_dir='top'."""
     viewport = pygame.Rect(0, 0, 960, 640)
@@ -349,6 +365,7 @@ def test_clamp_bubble_rect_all_borders():
 # -----------------------------------------------------------------------------
 # 5. POIs Semánticos y Navegación A*
 # -----------------------------------------------------------------------------
+
 
 def test_all_semantic_pois_valid_and_walkable():
     """Verifica que los POIs de debate existan y cumplan las reglas de transitabilidad y distancia."""
@@ -399,6 +416,7 @@ def test_astar_route_from_spawns_to_debate_spots():
 # 6. Interfaz Lateral ChatUI y Enrutamiento de Eventos
 # -----------------------------------------------------------------------------
 
+
 def test_chat_ui_event_routing():
     """Verifica que ChatUI capture clics en su campo de texto y botón."""
     chat_ui = ChatUI(width=380, height=640)
@@ -448,7 +466,9 @@ def test_chat_ui_scroll():
 def test_full_question_preserved_in_history():
     """Verifica que la pregunta completa se conserve íntegramente en ChatMessage sin truncarse."""
     coord = ConversationCoordinator()
-    long_question = "¿Quién tiene mejor plantilla esta temporada teniendo en cuenta los fichajes de verano y la cantera?"
+    long_question = (
+        "¿Quién tiene mejor plantilla esta temporada teniendo en cuenta los fichajes de verano y la cantera?"
+    )
     coord.submit_question(long_question)
 
     user_msg = next((m for m in coord.messages if m.role == "user"), None)
@@ -512,7 +532,8 @@ def test_render_chat_ui_runs_cleanly():
 
 def test_bdi_controller_respects_lock():
     """Verifica que un BDIController bloqueado no sobreescriba la intención con otros deseos."""
-    from src.simulation.bdi import BDIController, DesireType, IntentionState
+    from src.simulation.bdi import BDIController
+
     bdi = BDIController("josep", "barcelona", "Josep")
     world = BarWorld()
     agent = VisualAgent("josep", "barcelona", "Josep", 208, 240)

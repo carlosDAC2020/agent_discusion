@@ -18,7 +18,7 @@ from src.simulation.agent import (
 )
 from src.simulation.audio import AudioManager
 from src.simulation.audio_events import AudioEventType
-from src.simulation.camera import Camera25D, default_camera
+from src.simulation.camera import default_camera
 from src.simulation.chat_ui import ChatUI
 from src.simulation.config import (
     CHAT_PANEL_WIDTH,
@@ -31,7 +31,6 @@ from src.simulation.config import (
 )
 from src.simulation.conversation import (
     ConversationCoordinator,
-    ConversationCoordinatorState,
 )
 from src.simulation.bdi import (
     BDIController,
@@ -114,9 +113,7 @@ def run_simulation(
     pygame.init()
     pygame.font.init()
 
-    window_surface = pygame.display.set_mode(
-        (WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE
-    )
+    window_surface = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption(WINDOW_TITLE)
 
     # Superficie lógica de resolución fija (960x640)
@@ -223,22 +220,22 @@ def run_simulation(
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.VIDEORESIZE:
-                    window_surface = pygame.display.set_mode(
-                        (event.w, event.h), pygame.RESIZABLE
-                    )
+                    window_surface = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
                 else:
                     # Enrutamiento al panel lateral de chat con controles de audio
                     submitted_q = chat_ui.handle_event(event, offset_x=bar_screen_w, audio_manager=audio_manager)
                     if submitted_q:
                         if dialogue_adapter is None:
-                            from src.simulation.dialogue import DialogueAdapter
                             dialogue_adapter = DialogueAdapter()
                             dialogue_adapter.start()
                             if bdi_active:
                                 bdi_controllers[0].attach_dialogue_adapter(dialogue_adapter)
                                 bdi_controllers[1].attach_dialogue_adapter(dialogue_adapter)
 
-                        if dialogue_adapter.is_busy() and dialogue_adapter.active_conversation_id != coordinator.active_conversation_id:
+                        if (
+                            dialogue_adapter.is_busy()
+                            and dialogue_adapter.active_conversation_id != coordinator.active_conversation_id
+                        ):
                             dialogue_adapter.cancel_conversation()
 
                         coordinator.submit_question(submitted_q, world=world, agents=agents)
@@ -373,7 +370,11 @@ def run_simulation(
                             speaker.complete_dialogue_message(ev.text)
                             speaker.conversation_phase = ConversationPhase.WAITING_RESPONSE
 
-                    elif ev.event_type in (DialogueEventType.FINISHED, DialogueEventType.ERROR, DialogueEventType.CANCELLED):
+                    elif ev.event_type in (
+                        DialogueEventType.FINISHED,
+                        DialogueEventType.ERROR,
+                        DialogueEventType.CANCELLED,
+                    ):
                         for a in agents:
                             a.set_thinking(False)
                             a.conversation_phase = ConversationPhase.IDLE
@@ -442,9 +443,7 @@ def run_simulation(
                 full_canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
                 full_canvas.blit(logical_surface, (0, 0))
                 full_canvas.blit(panel_surface, (LOGICAL_WIDTH, 0))
-                scaled_surface = pygame.transform.scale(
-                    full_canvas, current_window_size
-                )
+                scaled_surface = pygame.transform.scale(full_canvas, current_window_size)
                 window_surface.blit(scaled_surface, (0, 0))
 
             pygame.display.flip()

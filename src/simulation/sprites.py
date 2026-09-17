@@ -68,6 +68,7 @@ _NPC_CACHE: Dict[str, pygame.Surface] = {}
 # 1. SPRITES DE AGENTES PRINCIPALES (Josep y Paco)
 # =============================================================================
 
+
 def get_agent_sprite(
     team: str,
     facing: str,
@@ -199,7 +200,6 @@ def _generate_procedural_agent_sprite(
         raw.fill(pants, (9, 17 + by, 3, 6 - by))
         raw.fill((18, 16, 22), (7, 18 + by, 2, 2))
 
-
     # 3. TORSO / EQUIPACIÓN DEPORTIVA (Y: 9 a 16)
     if is_barca:
         raw.fill(COLOR_JOSEP_JERSEY_BLUE, (4, 9 + by, 8, 8))
@@ -324,6 +324,7 @@ def _generate_procedural_agent_sprite(
 # 2. BARTENDER (Manolo) PREPARANDO CÓCTELES EN LA BARRA
 # =============================================================================
 
+
 def get_bartender_sprite(shake_frame: int = 0, action: str = "shake") -> pygame.Surface:
     """Genera al camarero en sus distintas acciones (agitar cóctel, limpiar barra, servir trago)."""
     key = f"bartender_{shake_frame}_{action}"
@@ -432,6 +433,7 @@ def get_counter_drink_sprite(level: float = 1.0) -> pygame.Surface:
 # 3. SEÑORA DE LA LIMPIEZA (Doña Carmen) CON FREGONA Y CUBO
 # =============================================================================
 
+
 def get_cleaner_sprite(mop_frame: int = 0, is_walking: bool = False) -> pygame.Surface:
     """Genera a la señora de la limpieza con delantal, moño y fregona (en marcha o barriendo)."""
     key = f"cleaner_{mop_frame}_{is_walking}"
@@ -504,6 +506,7 @@ def get_cleaner_bucket_sprite() -> pygame.Surface:
 # 4. SEÑOR EN LA ESQUINA TOSIENDO (Don Antonio)
 # =============================================================================
 
+
 def get_old_man_sprite(is_coughing: bool = False, is_standing: bool = False) -> pygame.Surface:
     """Genera al señor mayor sentado o de pie paseando en su rincón, con boina y abrigo."""
     key = f"oldman_{is_coughing}_{is_standing}"
@@ -566,6 +569,7 @@ def get_old_man_sprite(is_coughing: bool = False, is_standing: bool = False) -> 
 # =============================================================================
 # 5. DETALLES Y ELEMENTOS DE SOPORTE
 # =============================================================================
+
 
 def render_contact_shadow(surface: pygame.Surface, screen_x: float, screen_y: float) -> None:
     """Dibuja una sombra elíptica suave bajo los pies del personaje sobre el plano del suelo."""
@@ -694,20 +698,16 @@ def render_dialogue_bubble(
         lines = all_lines
 
     line_height = font.get_linesize()
-    text_width = max(font.size(l)[0] for l in lines) if lines else 40
+    text_width = max(font.size(line_text)[0] for line_text in lines) if lines else 40
     bubble_w = max(text_width + 16, font.size(speaker_name)[0] + 20)
     bubble_h = len(lines) * line_height + 18
 
     bounds = viewport_bounds or pygame.Rect(0, 0, 960, 640)
-    bubble_rect, tail_dir = clamp_bubble_rect(
-        bubble_w, bubble_h, screen_x, screen_y, bounds, min_top_margin=36
-    )
+    bubble_rect, tail_dir = clamp_bubble_rect(bubble_w, bubble_h, screen_x, screen_y, bounds, min_top_margin=36)
 
     # Sombra del bocadillo
     shadow_surf = pygame.Surface((bubble_rect.width + 4, bubble_rect.height + 4), pygame.SRCALPHA)
-    pygame.draw.rect(
-        shadow_surf, (0, 0, 0, 70), (0, 0, bubble_rect.width + 4, bubble_rect.height + 4), border_radius=6
-    )
+    pygame.draw.rect(shadow_surf, (0, 0, 0, 70), (0, 0, bubble_rect.width + 4, bubble_rect.height + 4), border_radius=6)
     surface.blit(shadow_surf, (bubble_rect.x + 2, bubble_rect.y + 2))
 
     # Cuerpo del bocadillo (blanco cálido cómic)
@@ -741,9 +741,7 @@ def render_dialogue_bubble(
         surface.blit(txt_surf, (bubble_rect.x + 8, bubble_rect.y + 16 + idx * line_height))
 
 
-def render_cough_comic_puff(
-    surface: pygame.Surface, screen_x: float, screen_y: float, font: pygame.font.Font
-) -> None:
+def render_cough_comic_puff(surface: pygame.Surface, screen_x: float, screen_y: float, font: pygame.font.Font) -> None:
     """Renderiza el bocadillo animado de tos '*cof! cof!*' con nubecilla cómic."""
     puff_text = "*cof! cof!*"
     text_surf = font.render(puff_text, True, COLOR_COUGH_TEXT)
@@ -757,4 +755,3 @@ def render_cough_comic_puff(
     pygame.draw.circle(surface, (180, 180, 190), (px + 6, py + 14), 4, 1)
 
     surface.blit(text_surf, (px + 6, py + 2))
-

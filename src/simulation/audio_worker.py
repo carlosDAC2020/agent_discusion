@@ -33,6 +33,7 @@ from src.simulation.debug_logger import debug_log
 # 1. FUNCIÓN PURA: CONVERSIÓN PCM A WAV
 # =============================================================================
 
+
 def pcm_to_wav_bytes(
     pcm_data: bytes,
     sample_rate: int = AUDIO_SAMPLE_RATE,
@@ -72,6 +73,7 @@ def pcm_to_wav_bytes(
 # =============================================================================
 # 2. PROVEEDORES DE SÍNTESIS TTS
 # =============================================================================
+
 
 class BaseTTSProvider:
     """Interfaz base para proveedores de síntesis de voz."""
@@ -145,6 +147,7 @@ class GeminiTTSProvider(BaseTTSProvider):
             if not self.api_key:
                 raise RuntimeError("GEMINI_API_KEY no configurada para GeminiTTSProvider.")
             from google import genai
+
             self._client = genai.Client(api_key=self.api_key)
         return self._client
 
@@ -208,6 +211,7 @@ class GeminiTTSProvider(BaseTTSProvider):
 # =============================================================================
 # 3. WORKER DE AUDIO ASÍNCRONO
 # =============================================================================
+
 
 class AudioWorker(threading.Thread):
     """Hilo trabajador desacoplado que sintetiza oraciones de voz y emite eventos VOICE_READY."""
@@ -309,7 +313,7 @@ class AudioWorker(threading.Thread):
             debug_log(
                 "AUDIO_WORKER",
                 "VOICE_READY_EMITTED",
-                f"audio_id={audio_id}, wav_size={len(wav_bytes)}, duration={duration_s:.2f}s, elapsed={time.time()-start_t:.2f}s",
+                f"audio_id={audio_id}, wav_size={len(wav_bytes)}, duration={duration_s:.2f}s, elapsed={time.time() - start_t:.2f}s",
                 conversation_id=req.conversation_id,
             )
 

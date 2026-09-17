@@ -215,9 +215,7 @@ class DialogueWorker(threading.Thread):
                 )
             )
 
-    async def _stream_debate_events(
-        self, graph: Any, state: Dict[str, Any], conv_id: str
-    ) -> None:
+    async def _stream_debate_events(self, graph: Any, state: Dict[str, Any], conv_id: str) -> None:
         """Itera sobre astream_events y transforma los eventos del grafo para Pygame."""
         current_team: Optional[str] = None
         turn_buffer = ""
