@@ -24,6 +24,9 @@ from src.agents.real_madrid_agent import TEAM_NAME as REAL_MADRID
 from src.config.settings import MODE_KNOWLEDGE, MODE_MCP, STYLE_ANSWER, STYLE_DEBATE
 from src.orchestrator.graph import _extract_text, build_debate_graph
 from src.orchestrator.state import initial_state
+from src.social.base import DebatePublisher, PublishError
+from src.social.models import debate_from_result
+from src.social.registry import available_platforms, get_publisher
 
 if sys.platform == "win32":
     # La consola de Windows suele usar un codepage (ej. 850) que rompe los
@@ -68,6 +71,7 @@ def _tool_trace_line(tool_name: str, args: dict) -> str:
     return f"[dim]↳ {message}[/dim]"
 
 EXPORT_HELP = "Exporta el debate a un archivo (.txt o .json). Se agrega al final si ya existe."
+PUBLISH_HELP = f"Publica el debate en una red social al terminar. Opciones: {', '.join(available_platforms())}."
 
 
 class ModeOption(str, enum.Enum):
@@ -178,12 +182,53 @@ def _export_debate(question: str, result: dict, path: Path) -> None:
     console.print(f"[dim]Debate exportado a {path}[/dim]")
 
 
+def _resolve_publisher(publish_to: Optional[str]) -> Optional[DebatePublisher]:
+    """Valida plataforma y credenciales ANTES de correr el debate (para no
+    gastar llamadas al modelo si el usuario tipeo mal el nombre, o si le
+    faltan credenciales de esa red social)."""
+    if publish_to is None:
+        return None
+    try:
+        publisher = get_publisher(publish_to)
+    except ValueError as exc:
+        console.print(Panel(str(exc), title="Plataforma invalida", border_style="red"))
+        raise typer.Exit(code=1) from exc
+
+    try:
+        publisher.ensure_ready()
+    except PublishError as exc:
+        console.print(
+            Panel(str(exc), title=f"No se puede publicar en {publisher.name}", border_style="red")
+        )
+        raise typer.Exit(code=1) from exc
+
+    return publisher
+
+
+def _publish_debate(publisher: DebatePublisher, question: str, mode: str, style: str, result: dict) -> None:
+    debate = debate_from_result(question, mode, style, result)
+    try:
+        publish_result = publisher.publish(debate)
+    except PublishError as exc:
+        console.print(
+            Panel(str(exc), title=f"No se pudo publicar en {publisher.name}", border_style="red")
+        )
+        return
+    except NotImplementedError as exc:
+        console.print(Panel(str(exc), title="Plataforma no implementada", border_style="yellow"))
+        return
+    console.print(
+        f"[dim]Publicado en {publish_result.platform}: {publish_result.posted} mensajes.[/dim]"
+    )
+
+
 async def _run_debate(
     question: str,
     rounds: int,
     mode: str,
     style: str,
     export: Optional[Path] = None,
+    publisher: Optional[DebatePublisher] = None,
 ) -> None:
     try:
         graph = await build_debate_graph(mode=mode, style=style)
@@ -277,13 +322,22 @@ async def _run_debate(
         )
         return
 
-    if export is not None and final_result is not None:
-        # Los eventos de on_chain_end solo traen lo que el nodo retorna
-        # (messages, turns_taken), no el estado completo (a diferencia de
-        # graph.ainvoke): completamos con los campos que vienen del estado
-        # inicial y no cambian durante la ejecucion.
-        export_result = {**state, **final_result, "mode": mode, "style": style}
-        _export_debate(question, export_result, export)
+    # Los eventos de on_chain_end solo traen lo que el nodo retorna
+    # (messages, turns_taken), no el estado completo (a diferencia de
+    # graph.ainvoke): completamos con los campos que vienen del estado
+    # inicial y no cambian durante la ejecucion. Tanto exportar como
+    # publicar necesitan esta misma forma completa.
+    final_state = {**state, **final_result, "mode": mode, "style": style} if final_result is not None else None
+
+    if export is not None and final_state is not None:
+        _export_debate(question, final_state, export)
+
+    if publisher is not None and final_state is not None:
+        # `_publish_debate` hace llamadas de red sincronas (requests/praw).
+        # Se corre en un thread aparte para no bloquear el loop de asyncio
+        # que ya esta corriendo aca (evita el warning de PRAW sobre uso en
+        # entornos asincronos, y no frena el event loop durante la llamada).
+        await asyncio.to_thread(_publish_debate, publisher, question, mode, style, final_state)
 
 
 @app.command()
@@ -292,9 +346,11 @@ def chat(
     export: Optional[Path] = typer.Option(None, "--export", help=EXPORT_HELP),
     mode: Optional[ModeOption] = typer.Option(None, "--mode", help=MODE_HELP),
     style: Optional[StyleOption] = typer.Option(None, "--style", help=STYLE_HELP),
+    publish_to: Optional[str] = typer.Option(None, "--publish-to", help=PUBLISH_HELP),
 ) -> None:
     """Chat interactivo: escribe preguntas de futbol, 'salir' para terminar."""
     console.print("[bold]Debate Barcelona vs Real Madrid[/bold] - escribe 'salir' para terminar.\n")
+    publisher = _resolve_publisher(publish_to)
     mode_value, style_value = _resolve_config(mode, style, interactive=True)
     rounds_value = _resolve_rounds(rounds, style_value)
     turnos = rounds_value * 2
@@ -311,7 +367,7 @@ def chat(
             break
         if question.strip().lower() in {"salir", "exit", "quit"}:
             break
-        asyncio.run(_run_debate(question, rounds_value, mode_value, style_value, export))
+        asyncio.run(_run_debate(question, rounds_value, mode_value, style_value, export, publisher))
         console.print()
 
 
@@ -322,10 +378,12 @@ def ask(
     export: Optional[Path] = typer.Option(None, "--export", help=EXPORT_HELP),
     mode: ModeOption = typer.Option(ModeOption.mcp, "--mode", help=MODE_HELP),
     style: StyleOption = typer.Option(StyleOption.debate, "--style", help=STYLE_HELP),
+    publish_to: Optional[str] = typer.Option(None, "--publish-to", help=PUBLISH_HELP),
 ) -> None:
     """Hace una sola pregunta y termina (util para scripts/pruebas)."""
+    publisher = _resolve_publisher(publish_to)
     rounds_value = _resolve_rounds(rounds, style.value)
-    asyncio.run(_run_debate(question, rounds_value, mode.value, style.value, export))
+    asyncio.run(_run_debate(question, rounds_value, mode.value, style.value, export, publisher))
 
 
 @app.command()
