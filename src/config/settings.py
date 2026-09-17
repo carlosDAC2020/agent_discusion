@@ -25,6 +25,17 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
+# Credenciales para publicar el debate en Reddit (src/social/reddit_publisher.py).
+# App tipo "script" creada en https://www.reddit.com/prefs/apps (da client_id
+# y client_secret), mas usuario/clave de la cuenta que va a postear y el
+# subreddit destino (sin "r/", solo el nombre).
+REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID", "")
+REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET", "")
+REDDIT_USERNAME = os.getenv("REDDIT_USERNAME", "")
+REDDIT_PASSWORD = os.getenv("REDDIT_PASSWORD", "")
+REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT", "agent_discusion-debate-bot/0.1")
+REDDIT_SUBREDDIT = os.getenv("REDDIT_SUBREDDIT", "")
+
 # Por defecto usamos el mismo interprete que corre la CLI (sys.executable)
 # en vez de "python" a secas: en Windows ese nombre puede resolver al stub
 # de la Microsoft Store en lugar del interprete real del entorno.

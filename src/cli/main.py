@@ -333,7 +333,11 @@ async def _run_debate(
         _export_debate(question, final_state, export)
 
     if publisher is not None and final_state is not None:
-        _publish_debate(publisher, question, mode, style, final_state)
+        # `_publish_debate` hace llamadas de red sincronas (requests/praw).
+        # Se corre en un thread aparte para no bloquear el loop de asyncio
+        # que ya esta corriendo aca (evita el warning de PRAW sobre uso en
+        # entornos asincronos, y no frena el event loop durante la llamada).
+        await asyncio.to_thread(_publish_debate, publisher, question, mode, style, final_state)
 
 
 @app.command()

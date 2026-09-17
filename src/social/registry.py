@@ -18,7 +18,7 @@ _PUBLISHERS: dict[str, type[DebatePublisher]] = {
 }
 
 # Subset de _PUBLISHERS cuya implementacion funciona de punta a punta hoy.
-IMPLEMENTED_PLATFORMS = frozenset({"telegram"})
+IMPLEMENTED_PLATFORMS = frozenset({"telegram", "reddit"})
 PLANNED_PLATFORMS = frozenset(_PUBLISHERS) - IMPLEMENTED_PLATFORMS
 
 
