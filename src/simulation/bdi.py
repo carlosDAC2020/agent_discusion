@@ -272,6 +272,10 @@ class BDIController:
         # Adaptador de diálogo opcional para debates reales (Fase 5)
         self.dialogue_adapter: Optional[Any] = None
 
+        # Bloqueo de deliberación durante tertulia/debate activo
+        self.is_locked: bool = False
+        self.is_conversation_locked: bool = False
+
         # Temporizador de control para la frecuencia de decisión (4 Hz)
 
         self.decision_timer: float = 0.0
@@ -281,6 +285,41 @@ class BDIController:
 
         # Historial de POIs visitados para evitar oscilación en bucle inmediato
         self.recent_pois: List[str] = []
+
+    def lock_for_conversation(self, plan_name: str = "DEBATE_AT_BAR") -> None:
+        """Bloquea deliberación y selección de intenciones durante un debate."""
+        self.is_locked = True
+        self.is_conversation_locked = True
+
+    def release_conversation_lock(self) -> None:
+        """Libera el bloqueo de conversación permitiendo al BDI deliberar de nuevo."""
+        self.is_locked = False
+        self.is_conversation_locked = False
+        if self.current_intention and self.current_intention.plan_name == "DEBATE_AT_BAR":
+            self.current_intention.state = IntentionState.COMPLETED
+            self.current_intention = None
+
+    def command_debate_at_bar(self, agent: Any, world: BarWorld, poi_name: str) -> None:
+        """Ordena navegación hacia el POI semántico de debate en la barra y bloquea deliberación."""
+        poi = world.pois.get(poi_name)
+        if not poi:
+            return
+        self.lock_for_conversation("DEBATE_AT_BAR")
+        agent.is_conversation_locked = True
+        self.intention_counter += 1
+        intention = Intention(
+            intention_id=f"intent_{self.intention_counter}_debate",
+            desire_type=DesireType.SOCIALIZE,
+            plan_name="DEBATE_AT_BAR",
+            state=IntentionState.ACTIVE,
+            target_pos=(poi.x, poi.y),
+            target_poi_name=poi_name,
+            priority=2.0,
+            action_duration=9999.0,
+            execution_phase="NAVIGATING",
+        )
+        self.current_intention = intention
+        agent.navigate_to(world, poi.x, poi.y)
 
     def attach_dialogue_adapter(self, adapter: Any) -> None:
         """Conecta un adaptador de diálogo para gestionar debates reales con el LLM."""
@@ -876,6 +915,13 @@ class BDIController:
         """Ejecuta el ciclo completo BDI periódicamente respetando la frecuencia de decisión."""
         # 1. Percepción física en cada paso para mantener la telemetría al día
         self.perceive(agent, world, other_agent, dt)
+
+        # Si el controlador está bloqueado por debate activo, no evaluar otros deseos
+        if self.is_locked:
+            if self.current_intention and self.current_intention.plan_name == "DEBATE_AT_BAR":
+                if not agent.is_navigating and self.current_intention.execution_phase == "NAVIGATING":
+                    self.current_intention.execution_phase = "ACTION"
+            return
 
         # 2. Control de frecuencia deliberativa (ejecuta razonamiento cada 0.25 segundos)
         self.decision_timer += dt

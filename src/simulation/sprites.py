@@ -7,7 +7,7 @@ Crea los avatares retro con cuadrícula de píxeles nativa escalada con vecino m
 - Señor mayor (Don Antonio) sentado en una esquina tosiendo con bocadillo animado.
 """
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import pygame
 
@@ -616,6 +616,47 @@ def render_agent_name_tag(
     surface.blit(text_surf, box_rect)
 
 
+def clamp_bubble_rect(
+    bubble_w: int,
+    bubble_h: int,
+    anchor_x: float,
+    anchor_y: float,
+    viewport_bounds: pygame.Rect,
+    min_top_margin: int = 36,
+) -> Tuple[pygame.Rect, str]:
+    """Calcula la posición de un bocadillo asegurando su confinamiento estricto en el viewport.
+
+    Si el bocadillo supera el margen superior (bubble_y < viewport_bounds.top + min_top_margin),
+    invierte su posición vertical dibujándolo debajo del personaje con
+    el rabillo apuntando hacia arriba.
+
+    Retorna:
+        (rect_ajustado, orientacion_rabillo: 'bottom' | 'top')
+    """
+    bx = int(anchor_x - bubble_w // 2)
+    by = int(anchor_y - bubble_h - 18)
+    tail_dir = "bottom"
+
+    # Si se desborda por arriba, voltear hacia abajo de los pies
+    if by < viewport_bounds.top + min_top_margin:
+        by = int(anchor_y + 24)
+        tail_dir = "top"
+
+    # Sujeción horizontal dentro del viewport del bar
+    if bx < viewport_bounds.left + 10:
+        bx = viewport_bounds.left + 10
+    elif bx + bubble_w > viewport_bounds.right - 10:
+        bx = viewport_bounds.right - 10 - bubble_w
+
+    # Sujeción vertical inferior y superior de seguridad
+    if by + bubble_h > viewport_bounds.bottom - 10:
+        by = viewport_bounds.bottom - 10 - bubble_h
+    if by < viewport_bounds.top + 10:
+        by = viewport_bounds.top + 10
+
+    return pygame.Rect(bx, by, bubble_w, bubble_h), tail_dir
+
+
 def render_dialogue_bubble(
     surface: pygame.Surface,
     screen_x: float,
@@ -625,11 +666,13 @@ def render_dialogue_bubble(
     font: pygame.font.Font,
     accent_color: Tuple[int, int, int] = (40, 80, 140),
     max_width: int = 180,
+    viewport_bounds: Optional[pygame.Rect] = None,
+    max_lines: int = 3,
 ) -> None:
-    """Renderiza un bocadillo de diálogo retro estilo viñeta de cómic con rabillo apuntador."""
+    """Renderiza un bocadillo de diálogo retro estilo viñeta de cómic con rabillo apuntador y confinamiento."""
     # Dividir texto por palabras para ajuste de ancho
     words = text.split(" ")
-    lines = []
+    all_lines = []
     curr_line = ""
     for w in words:
         test_line = (curr_line + " " + w).strip()
@@ -637,51 +680,65 @@ def render_dialogue_bubble(
             curr_line = test_line
         else:
             if curr_line:
-                lines.append(curr_line)
+                all_lines.append(curr_line)
             curr_line = w
     if curr_line:
-        lines.append(curr_line)
+        all_lines.append(curr_line)
+
+    is_truncated = len(all_lines) > max_lines
+    if is_truncated:
+        lines = all_lines[-max_lines:]
+        if lines and not lines[-1].endswith("..."):
+            lines[-1] = lines[-1] + "..."
+    else:
+        lines = all_lines
 
     line_height = font.get_linesize()
     text_width = max(font.size(l)[0] for l in lines) if lines else 40
     bubble_w = max(text_width + 16, font.size(speaker_name)[0] + 20)
     bubble_h = len(lines) * line_height + 18
 
-    bubble_x = int(screen_x - bubble_w // 2)
-    bubble_y = int(screen_y - bubble_h - 22)
-
-    # Mantener dentro de los bordes de la pantalla
-    if bubble_x < 10:
-        bubble_x = 10
-    elif bubble_x + bubble_w > 950:
-        bubble_x = 950 - bubble_w
+    bounds = viewport_bounds or pygame.Rect(0, 0, 960, 640)
+    bubble_rect, tail_dir = clamp_bubble_rect(
+        bubble_w, bubble_h, screen_x, screen_y, bounds, min_top_margin=36
+    )
 
     # Sombra del bocadillo
-    shadow_surf = pygame.Surface((bubble_w + 4, bubble_h + 4), pygame.SRCALPHA)
-    pygame.draw.rect(shadow_surf, (0, 0, 0, 70), (0, 0, bubble_w + 4, bubble_h + 4), border_radius=6)
-    surface.blit(shadow_surf, (bubble_x + 2, bubble_y + 2))
+    shadow_surf = pygame.Surface((bubble_rect.width + 4, bubble_rect.height + 4), pygame.SRCALPHA)
+    pygame.draw.rect(
+        shadow_surf, (0, 0, 0, 70), (0, 0, bubble_rect.width + 4, bubble_rect.height + 4), border_radius=6
+    )
+    surface.blit(shadow_surf, (bubble_rect.x + 2, bubble_rect.y + 2))
 
     # Cuerpo del bocadillo (blanco cálido cómic)
-    bubble_rect = pygame.Rect(bubble_x, bubble_y, bubble_w, bubble_h)
     pygame.draw.rect(surface, (255, 252, 242), bubble_rect, border_radius=6)
     pygame.draw.rect(surface, (45, 38, 30), bubble_rect, width=2, border_radius=6)
 
-    # Rabillo del bocadillo apuntando a la cabeza
+    # Rabillo del bocadillo según dirección (apuntando al personaje)
     tail_x = int(screen_x)
-    tail_y = bubble_y + bubble_h
-    tail_pts = [(tail_x - 6, tail_y - 1), (tail_x + 6, tail_y - 1), (tail_x, tail_y + 8)]
-    pygame.draw.polygon(surface, (255, 252, 242), tail_pts)
-    pygame.draw.line(surface, (45, 38, 30), (tail_x - 6, tail_y - 1), (tail_x, tail_y + 8), 2)
-    pygame.draw.line(surface, (45, 38, 30), (tail_x + 6, tail_y - 1), (tail_x, tail_y + 8), 2)
+    tail_x = max(bubble_rect.left + 12, min(tail_x, bubble_rect.right - 12))
+
+    if tail_dir == "bottom":
+        tail_y = bubble_rect.bottom
+        tail_pts = [(tail_x - 6, tail_y - 1), (tail_x + 6, tail_y - 1), (tail_x, tail_y + 8)]
+        pygame.draw.polygon(surface, (255, 252, 242), tail_pts)
+        pygame.draw.line(surface, (45, 38, 30), (tail_x - 6, tail_y - 1), (tail_x, tail_y + 8), 2)
+        pygame.draw.line(surface, (45, 38, 30), (tail_x + 6, tail_y - 1), (tail_x, tail_y + 8), 2)
+    else:
+        tail_y = bubble_rect.top
+        tail_pts = [(tail_x - 6, tail_y + 1), (tail_x + 6, tail_y + 1), (tail_x, tail_y - 8)]
+        pygame.draw.polygon(surface, (255, 252, 242), tail_pts)
+        pygame.draw.line(surface, (45, 38, 30), (tail_x - 6, tail_y + 1), (tail_x, tail_y - 8), 2)
+        pygame.draw.line(surface, (45, 38, 30), (tail_x + 6, tail_y + 1), (tail_x, tail_y - 8), 2)
 
     # Badge pequeño con el nombre del personaje
     badge_surf = font.render(speaker_name, True, accent_color)
-    surface.blit(badge_surf, (bubble_x + 8, bubble_y + 3))
+    surface.blit(badge_surf, (bubble_rect.x + 8, bubble_rect.y + 3))
 
     # Texto en el cuerpo
     for idx, line in enumerate(lines):
         txt_surf = font.render(line, True, (24, 20, 18))
-        surface.blit(txt_surf, (bubble_x + 8, bubble_y + 16 + idx * line_height))
+        surface.blit(txt_surf, (bubble_rect.x + 8, bubble_rect.y + 16 + idx * line_height))
 
 
 def render_cough_comic_puff(

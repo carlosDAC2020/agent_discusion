@@ -11,9 +11,11 @@ from typing import Tuple
 # -----------------------------------------------------------------------------
 LOGICAL_WIDTH: int = 960
 LOGICAL_HEIGHT: int = 640
-WINDOW_WIDTH: int = 960
+BAR_WIDTH: int = LOGICAL_WIDTH
+CHAT_PANEL_WIDTH: int = 380
+WINDOW_WIDTH: int = BAR_WIDTH + CHAT_PANEL_WIDTH  # 1340 px
 WINDOW_HEIGHT: int = 640
-WINDOW_TITLE: str = "Bar El Clásico - Simulación 2.5D Retro Pixel Art"
+WINDOW_TITLE: str = "Bar El Clásico - Simulación 2.5D & Tertulia"
 
 TARGET_FPS: int = 60
 
@@ -213,11 +215,13 @@ BDI_DEFAULT_SEED: int = 42
 # -----------------------------------------------------------------------------
 DIALOGUE_DEFAULT_MODE: str = "knowledge"
 DIALOGUE_DEFAULT_STYLE: str = "debate"
-DIALOGUE_MAX_ROUNDS: int = 1  # 1 ronda = 2 turnos (1 de Josep y 1 de Paco)
-DIALOGUE_TIMEOUT_SECONDS: float = 35.0
+DIALOGUE_MAX_ROUNDS: int = 4  # 4 rondas (iteraciones) = 8 turnos (4 de Josep y 4 de Paco) con réplicas y cierre
+DIALOGUE_TIMEOUT_SECONDS: float = 240.0  # Tiempo suficiente para procesar 8 turnos de debate completo
 DIALOGUE_POST_COOLDOWN: float = 25.0
 DIALOGUE_SOCIAL_TRIGGER_DISTANCE: float = 85.0
 DIALOGUE_BUBBLE_MAX_WIDTH: int = 220
 DIALOGUE_BUBBLE_HOLD_SECONDS: float = 6.0
+DEBATE_FINISHED_HOLD_SECONDS: float = 4.0
+MANOLO_QUESTION_HOLD_SECONDS: float = 3.5
 
 

@@ -72,7 +72,13 @@ def _team_label(team_key: str) -> str:
     return TEAM_DISPLAY_NAMES.get(team_key, team_key)
 
 
-def _format_context(question: str, messages: List[Dict[str, Any]], style: str) -> str:
+def _format_context(
+    question: str,
+    messages: List[Dict[str, Any]],
+    style: str,
+    turns_taken: int = 0,
+    max_turns: int = 2,
+) -> str:
     if style == STYLE_ANSWER or not messages:
         return f"Pregunta del usuario: {question}"
 
@@ -92,6 +98,16 @@ def _format_context(question: str, messages: List[Dict[str, Any]], style: str) -
         "nuevo que termine reforzando tu postura. No lo ignores ni respondas como si "
         "fuera la primera intervencion del debate."
     )
+
+    # Si es la última iteración (última ronda de conclusiones y cierre):
+    if max_turns > 2 and turns_taken >= max_turns - 2:
+        lines.append(
+            "\n[RONDA FINAL - CIERRE Y CONCLUSIONES DEL DEBATE]: "
+            "Esta es tu última intervención en este debate. Además de rebatir o contrastar "
+            "lo que dijo tu rival, formula tu conclusión final definitiva y contundente "
+            "sobre el tema, despidiéndote y cerrando el debate."
+        )
+
     return "\n".join(lines)
 
 
@@ -114,7 +130,13 @@ async def _invoke_agent_with_retry(agent, payload: dict, max_attempts: int = 2):
 
 def _make_node(team_key: str, agent):
     async def node(state: DebateState):
-        context = _format_context(state["question"], state["messages"], state["style"])
+        context = _format_context(
+            state["question"],
+            state["messages"],
+            state["style"],
+            turns_taken=state.get("turns_taken", 0),
+            max_turns=state.get("max_turns", 2),
+        )
         result, reply = await _invoke_agent_with_retry(
             agent, {"messages": [{"role": "user", "content": context}]}
         )

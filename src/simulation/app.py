@@ -17,13 +17,19 @@ from src.simulation.agent import (
     VisualAgent,
 )
 from src.simulation.camera import Camera25D, default_camera
+from src.simulation.chat_ui import ChatUI
 from src.simulation.config import (
+    CHAT_PANEL_WIDTH,
     LOGICAL_HEIGHT,
     LOGICAL_WIDTH,
     TARGET_FPS,
     WINDOW_HEIGHT,
     WINDOW_TITLE,
     WINDOW_WIDTH,
+)
+from src.simulation.conversation import (
+    ConversationCoordinator,
+    ConversationCoordinatorState,
 )
 from src.simulation.bdi import (
     BDIController,
@@ -110,6 +116,11 @@ def run_simulation(
 
     clock = pygame.time.Clock()
     font_small = pygame.font.SysFont("Arial", 11)
+    font_small_bold = pygame.font.SysFont("Arial", 11, bold=True)
+    font_tiny = pygame.font.SysFont("Arial", 9)
+
+    chat_ui = ChatUI(width=CHAT_PANEL_WIDTH, height=LOGICAL_HEIGHT)
+    coordinator = ConversationCoordinator()
 
     # 1. Instanciar el mundo del bar
     world = BarWorld()
@@ -119,6 +130,7 @@ def run_simulation(
     agents = create_initial_agents(world)
     atmosphere_npcs = create_atmosphere_npcs(world)
     all_characters: List[Any] = agents + atmosphere_npcs
+    bartender_npc = next((n for n in atmosphere_npcs if isinstance(n, BartenderNPC)), None)
 
     debug_mode = debug
     # El debate requiere que el BDI esté activo para coordinar los encuentros
@@ -174,7 +186,6 @@ def run_simulation(
             )
 
     # Puntos de interés para el modo de demostración cíclica controlada
-    # Ambos personajes disfrutan de forma equilibrada de la barra, mesas y salón de TV
     demo_patrols = {
         0: ["bar_stool_2", "table_central_1_seat_west", "tv_lounge_seat_22", "barcelona_spawn"],
         1: ["bar_stool_4", "tv_lounge_seat_24", "table_side_1_seat_north", "real_madrid_spawn"],
@@ -189,6 +200,9 @@ def run_simulation(
 
             # 1. Eventos de entrada
             current_window_size = window_surface.get_size()
+            win_w, win_h = current_window_size
+            bar_screen_w = int(win_w * (LOGICAL_WIDTH / WINDOW_WIDTH))
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -196,58 +210,80 @@ def run_simulation(
                     window_surface = pygame.display.set_mode(
                         (event.w, event.h), pygame.RESIZABLE
                     )
-                elif event.type == pygame.KEYDOWN:
-                    if event.key in (pygame.K_ESCAPE, pygame.K_q):
-                        running = False
-                    elif event.key == pygame.K_d:
-                        debug_mode = not debug_mode
-                    elif event.key == pygame.K_b:
-                        bdi_active = not bdi_active
-                        if bdi_active:
-                            demo_active = False
-                            agents[0].attach_bdi(bdi_controllers[0])
-                            agents[1].attach_bdi(bdi_controllers[1])
-                            if dialogue_adapter is not None:
+                else:
+                    # Enrutamiento al panel lateral de chat
+                    submitted_q = chat_ui.handle_event(event, offset_x=bar_screen_w)
+                    if submitted_q:
+                        if dialogue_adapter is None:
+                            from src.simulation.dialogue import DialogueAdapter
+                            dialogue_adapter = DialogueAdapter()
+                            dialogue_adapter.start()
+                            if bdi_active:
                                 bdi_controllers[0].attach_dialogue_adapter(dialogue_adapter)
                                 bdi_controllers[1].attach_dialogue_adapter(dialogue_adapter)
-                        else:
-                            agents[0].detach_bdi()
-                            agents[1].detach_bdi()
-                            bdi_controllers[0].detach_dialogue_adapter()
-                            bdi_controllers[1].detach_dialogue_adapter()
-                    elif event.key == pygame.K_m:
-                        demo_active = not demo_active
-                        if demo_active and bdi_active:
-                            bdi_active = False
-                            agents[0].detach_bdi()
-                            agents[1].detach_bdi()
-                            bdi_controllers[0].detach_dialogue_adapter()
-                            bdi_controllers[1].detach_dialogue_adapter()
-                    elif event.key in (pygame.K_TAB, pygame.K_SPACE):
-                        selected_agent_idx = (selected_agent_idx + 1) % len(agents)
-                    elif event.key == pygame.K_1:
-                        selected_agent_idx = 0
-                    elif event.key == pygame.K_2 and len(agents) > 1:
-                        selected_agent_idx = 1
-                    elif event.key == pygame.K_c:
-                        agents[selected_agent_idx].cancel_navigation()
 
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # Conversión de coordenadas de ventana a lógicas
-                    lx, ly = camera.window_to_logical(event.pos[0], event.pos[1], current_window_size)
-                    if event.button == 1:  # Clic izquierdo: ordenar navegación
-                        col, row = pos_to_cell(lx, ly)
-                        if world.is_tile_walkable(col, row):
-                            target_x, target_y = cell_to_pos(col, row)
-                            agents[selected_agent_idx].navigate_to(world, target_x, target_y)
-                    elif event.button == 3:  # Clic derecho: cancelar ruta
-                        agents[selected_agent_idx].cancel_navigation()
+                        if dialogue_adapter.is_busy() and dialogue_adapter.active_conversation_id != coordinator.active_conversation_id:
+                            dialogue_adapter.cancel_conversation()
+
+                        coordinator.submit_question(submitted_q, world=world, agents=agents)
+
+                    # Si el campo de texto tiene foco y es tecla, no procesar atajos del simulador
+                    if chat_ui.input_active and event.type == pygame.KEYDOWN:
+                        continue
+
+                    if event.type == pygame.KEYDOWN:
+                        if event.key in (pygame.K_ESCAPE, pygame.K_q):
+                            running = False
+                        elif event.key == pygame.K_d:
+                            debug_mode = not debug_mode
+                        elif event.key == pygame.K_b:
+                            bdi_active = not bdi_active
+                            if bdi_active:
+                                demo_active = False
+                                agents[0].attach_bdi(bdi_controllers[0])
+                                agents[1].attach_bdi(bdi_controllers[1])
+                                if dialogue_adapter is not None:
+                                    bdi_controllers[0].attach_dialogue_adapter(dialogue_adapter)
+                                    bdi_controllers[1].attach_dialogue_adapter(dialogue_adapter)
+                            else:
+                                agents[0].detach_bdi()
+                                agents[1].detach_bdi()
+                                bdi_controllers[0].detach_dialogue_adapter()
+                                bdi_controllers[1].detach_dialogue_adapter()
+                        elif event.key == pygame.K_m:
+                            demo_active = not demo_active
+                            if demo_active and bdi_active:
+                                bdi_active = False
+                                agents[0].detach_bdi()
+                                agents[1].detach_bdi()
+                                bdi_controllers[0].detach_dialogue_adapter()
+                                bdi_controllers[1].detach_dialogue_adapter()
+                        elif event.key in (pygame.K_TAB, pygame.K_SPACE):
+                            selected_agent_idx = (selected_agent_idx + 1) % len(agents)
+                        elif event.key == pygame.K_1:
+                            selected_agent_idx = 0
+                        elif event.key == pygame.K_2 and len(agents) > 1:
+                            selected_agent_idx = 1
+                        elif event.key == pygame.K_c:
+                            agents[selected_agent_idx].cancel_navigation()
+
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.pos[0] < bar_screen_w:
+                        # Conversión de coordenadas de ventana a lógicas exclusivamente dentro del bar
+                        bar_px = event.pos[0] * (LOGICAL_WIDTH / max(1, bar_screen_w))
+                        bar_py = event.pos[1] * (LOGICAL_HEIGHT / max(1, win_h))
+                        lx, ly = camera.window_to_logical(bar_px, bar_py, (LOGICAL_WIDTH, LOGICAL_HEIGHT))
+                        if event.button == 1:
+                            col, row = pos_to_cell(lx, ly)
+                            if world.is_tile_walkable(col, row):
+                                target_x, target_y = cell_to_pos(col, row)
+                                agents[selected_agent_idx].navigate_to(world, target_x, target_y)
+                        elif event.button == 3:
+                            agents[selected_agent_idx].cancel_navigation()
 
             # 2. Rutina de demostración cíclica (solo si demo_active está habilitado y BDI apagado)
             if demo_active and not bdi_active:
                 for a_idx, agent in enumerate(agents):
                     if not agent.is_navigating:
-                        # Si está bebiendo activamente en la barra, esperar a que termine su consumición
                         if agent.is_drinking:
                             demo_pause_timers[a_idx] = max(demo_pause_timers[a_idx], 2.5)
                         demo_pause_timers[a_idx] -= dt
@@ -258,26 +294,23 @@ def run_simulation(
                             demo_indices[a_idx] = (demo_indices[a_idx] + 1) % len(patrol)
                             demo_pause_timers[a_idx] = 4.0
 
+            # 2.2. Actualizar tertulia, máquina de estados y UI lateral
+            chat_ui.update(dt)
+            coordinator.update(
+                dt,
+                world=world,
+                agents=agents,
+                manolo=bartender_npc,
+                dialogue_adapter=dialogue_adapter,
+            )
+
             # 2.5. Procesar eventos del worker de LangGraph si el adaptador de diálogo está activo
             if dialogue_adapter is not None:
                 drained_events = dialogue_adapter.poll_events()
-                if drained_events:
-                    debug_log(
-                        "APP_EVENT_LOOP",
-                        "EVENTS_DRAINED",
-                        f"count={len(drained_events)}",
-                    )
                 for ev in drained_events:
+                    coordinator.process_dialogue_event(ev, agents)
                     speaker = next((a for a in agents if a.team == ev.speaker_team), None)
                     listener = next((a for a in agents if a.team != ev.speaker_team), None) if speaker else None
-
-                    debug_log(
-                        "APP_EVENT_LOOP",
-                        "EVENT_RECEIVED",
-                        f"type={ev.event_type.value}, speaker={ev.speaker_team}, text_len={len(ev.text)}, tool={ev.tool_name}, error={ev.error_message}",
-                        agent_id=speaker.agent_id if speaker else None,
-                        conversation_id=ev.conversation_id,
-                    )
 
                     if ev.event_type == DialogueEventType.STARTED:
                         for a in agents:
@@ -285,6 +318,7 @@ def run_simulation(
 
                     elif ev.event_type == DialogueEventType.TURN_STARTED:
                         if speaker:
+                            speaker.clear_dialogue()
                             speaker.set_thinking(True)
                             speaker.conversation_phase = ConversationPhase.WAITING_RESPONSE
                         if listener:
@@ -295,6 +329,8 @@ def run_simulation(
                         if speaker:
                             speaker.set_dialogue_text(ev.text, append=True)
                             speaker.conversation_phase = ConversationPhase.SPEAKING
+                        if listener and getattr(listener, "active_dialogue_text", None):
+                            listener.clear_dialogue()
 
                     elif ev.event_type == DialogueEventType.TOOL_STARTED:
                         if speaker:
@@ -340,12 +376,19 @@ def run_simulation(
                     camera=camera,
                 )
 
+            # Renderizado del panel lateral de tertulia
+            panel_surface = chat_ui.render(coordinator, font_small, font_small_bold, font_tiny)
+
             # 5. Escalado y presentación en la ventana
-            if current_window_size == (LOGICAL_WIDTH, LOGICAL_HEIGHT):
+            if current_window_size == (WINDOW_WIDTH, WINDOW_HEIGHT):
                 window_surface.blit(logical_surface, (0, 0))
+                window_surface.blit(panel_surface, (LOGICAL_WIDTH, 0))
             else:
+                full_canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+                full_canvas.blit(logical_surface, (0, 0))
+                full_canvas.blit(panel_surface, (LOGICAL_WIDTH, 0))
                 scaled_surface = pygame.transform.scale(
-                    logical_surface, current_window_size
+                    full_canvas, current_window_size
                 )
                 window_surface.blit(scaled_surface, (0, 0))
 

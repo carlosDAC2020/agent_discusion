@@ -26,6 +26,10 @@ class PointOfInterest:
     description: str
     occupied: bool = False
     occupied_by: Optional[str] = None
+    recommended_facing: str = "left"
+    interaction_radius: float = 32.0
+    is_walkable: bool = True
+    exclusive_to: Optional[str] = None
 
 
 @dataclass(frozen=True)

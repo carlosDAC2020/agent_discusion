@@ -220,6 +220,8 @@ class BarWorld:
             tile_x=6,
             tile_y=7,
             description="Punto de inicio para Josep (FC Barcelona)",
+            recommended_facing="right",
+            exclusive_to="barcelona",
         )
         self._add_poi(
             name="real_madrid_spawn",
@@ -227,16 +229,73 @@ class BarWorld:
             tile_x=22,
             tile_y=8,
             description="Punto de inicio para Paco (Real Madrid)",
+            recommended_facing="left",
+            exclusive_to="real_madrid",
+        )
+
+        # 6. POIs Semánticos para el debate y moderación en la barra
+        self._add_poi(
+            name="barcelona_debate_spot",
+            category="debate",
+            tile_x=6,
+            tile_y=7,
+            description="Posición de debate frente a la barra para Josep (FC Barcelona)",
+            recommended_facing="left",
+            interaction_radius=32.0,
+            exclusive_to="barcelona",
+        )
+        self._add_poi(
+            name="real_madrid_debate_spot",
+            category="debate",
+            tile_x=6,
+            tile_y=9,
+            description="Posición de debate frente a la barra para Paco (Real Madrid)",
+            recommended_facing="left",
+            interaction_radius=32.0,
+            exclusive_to="real_madrid",
+        )
+        self._add_poi(
+            name="bartender_position",
+            category="bartender",
+            tile_x=2,
+            tile_y=7,
+            description="Posición de trabajo del barman detrás de la barra",
+            recommended_facing="right",
+            interaction_radius=40.0,
+            is_walkable=False,
+            exclusive_to="bartender",
+        )
+        self._add_poi(
+            name="bartender_interaction_zone",
+            category="bartender",
+            tile_x=4,
+            tile_y=8,
+            description="Zona de atención en el mostrador entre Manolo y tertulianos",
+            recommended_facing="center",
+            interaction_radius=48.0,
+            is_walkable=False,
         )
 
     def _add_obstacle(self, name: str, category: str, x: int, y: int, w: int, h: int) -> None:
         """Registra un obstáculo en la lista."""
         self.obstacles.append(Obstacle(name=name, category=category, x=x, y=y, width=w, height=h))
 
-    def _add_poi(self, name: str, category: str, tile_x: int, tile_y: int, description: str) -> None:
+    def _add_poi(
+        self,
+        name: str,
+        category: str,
+        tile_x: int,
+        tile_y: int,
+        description: str,
+        recommended_facing: str = "left",
+        interaction_radius: float = 32.0,
+        is_walkable: Optional[bool] = None,
+        exclusive_to: Optional[str] = None,
+    ) -> None:
         """Registra un punto de interés en el diccionario."""
         px = tile_x * self.tile_size + self.tile_size // 2
         py = tile_y * self.tile_size + self.tile_size // 2
+        walkable_val = is_walkable if is_walkable is not None else self.is_tile_walkable(tile_x, tile_y)
         self.pois[name] = PointOfInterest(
             name=name,
             category=category,
@@ -245,6 +304,10 @@ class BarWorld:
             tile_x=tile_x,
             tile_y=tile_y,
             description=description,
+            recommended_facing=recommended_facing,
+            interaction_radius=interaction_radius,
+            is_walkable=walkable_val,
+            exclusive_to=exclusive_to,
         )
 
     def is_inside(self, x: float, y: float) -> bool:

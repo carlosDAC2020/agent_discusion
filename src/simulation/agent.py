@@ -110,8 +110,9 @@ class VisualAgent:
             (0, 77, 152) if team == "barcelona" else (190, 160, 45)
         )
 
-        # Estado de conversación y diálogo real (Fase 5)
+        # Estado de conversación y diálogo real (Fase 5 y Tertulia)
         self.conversation_phase: ConversationPhase = ConversationPhase.IDLE
+        self.is_conversation_locked: bool = False
         self.is_thinking: bool = False
         self.thinking_timer: float = 0.0
         self.thinking_frame: int = 0
@@ -507,6 +508,14 @@ class BartenderNPC:
         """Despliega un bocadillo cómic del camarero."""
         self.active_bubble_text = text
         self.bubble_timer = float(duration)
+
+    def moderate_question(self, question: str, duration: float = 3.5) -> None:
+        """Modera y formula visualmente al público del bar la pregunta del usuario."""
+        self.state = "MODERATING"
+        self.action = "idle"
+        self.state_timer = 0.0
+        self.current_question_text = question
+        self.say(f"Manolo: {question}", duration=duration)
 
     def order_drink(self, customer: Any) -> None:
         """Inicia la preparación de un trago para un cliente en un taburete."""
