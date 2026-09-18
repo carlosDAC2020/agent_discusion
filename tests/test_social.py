@@ -72,25 +72,44 @@ def _fake_response(message_id: int):
     return resp
 
 
-def test_telegram_publisher_sin_credenciales_da_publish_error():
-    publisher = TelegramPublisher(bot_token="", chat_id="")
+_NARRATOR_TOKEN = "TOKEN_NARRADOR"
+_BOT_TOKENS = {"barcelona": "TOKEN_JOSEP", "real_madrid": "TOKEN_PACO"}
+
+
+def _publisher(**overrides):
+    kwargs = {"narrator_token": _NARRATOR_TOKEN, "bot_tokens": _BOT_TOKENS, "chat_id": "123"}
+    kwargs.update(overrides)
+    return TelegramPublisher(**kwargs)
+
+
+def test_telegram_publisher_sin_credenciales_lista_lo_que_falta():
+    publisher = TelegramPublisher(
+        narrator_token="", bot_tokens={"barcelona": "", "real_madrid": ""}, chat_id=""
+    )
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    with pytest.raises(PublishError, match="Faltan credenciales"):
+    with pytest.raises(PublishError, match="TELEGRAM_CHAT_ID"):
         publisher.publish(debate)
 
 
-def test_telegram_publisher_ensure_ready_sin_credenciales_da_publish_error():
-    publisher = TelegramPublisher(bot_token="", chat_id="")
-    with pytest.raises(PublishError, match="Faltan credenciales"):
+def test_telegram_publisher_ensure_ready_sin_un_bot_da_publish_error():
+    # Falta solo el bot de Real Madrid: el mensaje debe decirlo puntualmente.
+    publisher = _publisher(bot_tokens={"barcelona": "TOKEN_JOSEP", "real_madrid": ""})
+    with pytest.raises(PublishError, match="TELEGRAM_BOT_TOKEN_REAL_MADRID"):
+        publisher.ensure_ready()
+
+
+def test_telegram_publisher_ensure_ready_sin_narrador_da_publish_error():
+    publisher = _publisher(narrator_token="")
+    with pytest.raises(PublishError, match="TELEGRAM_BOT_TOKEN\\b"):
         publisher.ensure_ready()
 
 
 def test_telegram_publisher_ensure_ready_con_credenciales_no_lanza():
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
     assert publisher.ensure_ready() is None
 
 
-def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
+def test_telegram_publisher_publica_header_con_narrador_y_turnos_con_su_bot():
     debate = Debate(
         question="Quien tiene mejor delantera?",
         mode="mcp",
@@ -100,7 +119,7 @@ def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
             DebateTurn(team="real_madrid", content="Hala Madrid"),
         ],
     )
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
 
     responses = [_fake_response(1), _fake_response(2), _fake_response(3)]
     with (
@@ -116,19 +135,24 @@ def test_telegram_publisher_publica_header_y_cada_turno_encadenado():
     assert post.call_count == 3
     first_call, second_call, third_call = post.call_args_list
 
-    # El header no responde a ningun mensaje previo.
+    # El header lo manda el bot narrador. Ningun mensaje lleva
+    # reply_to_message_id: Telegram no deja que un bot responda a otro bot.
+    assert "TOKEN_NARRADOR" in first_call.args[0]
     assert "reply_to_message_id" not in first_call.kwargs["json"]
 
-    # Cada turno responde al mensaje anterior (header -> turno 1 -> turno 2).
-    assert second_call.kwargs["json"]["reply_to_message_id"] == 1
-    assert third_call.kwargs["json"]["reply_to_message_id"] == 2
+    # Cada turno lo manda el bot de SU equipo.
+    assert "TOKEN_JOSEP" in second_call.args[0]
+    assert "reply_to_message_id" not in second_call.kwargs["json"]
     assert "Vamos Barca" in second_call.kwargs["json"]["text"]
+
+    assert "TOKEN_PACO" in third_call.args[0]
+    assert "reply_to_message_id" not in third_call.kwargs["json"]
     assert "Hala Madrid" in third_call.kwargs["json"]["text"]
 
 
 def test_telegram_publisher_error_de_api_da_publish_error():
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
 
     resp = Mock()
     resp.ok = False
@@ -155,7 +179,7 @@ def _rate_limited_response(retry_after: int = 2):
 
 def test_telegram_publisher_reintenta_tras_rate_limit_429():
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
 
     responses = [_rate_limited_response(retry_after=2), _fake_response(1)]
     with (
@@ -171,7 +195,7 @@ def test_telegram_publisher_reintenta_tras_rate_limit_429():
 
 def test_telegram_publisher_rate_limit_persistente_agota_reintentos():
     debate = Debate(question="q", mode="mcp", style="debate", turns=[])
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
 
     with (
         patch(
@@ -186,14 +210,14 @@ def test_telegram_publisher_rate_limit_persistente_agota_reintentos():
     assert post.call_count == 3
 
 
-def test_telegram_publisher_usa_html_y_negrita_para_el_equipo():
+def test_telegram_publisher_usa_html_y_el_bot_del_equipo_no_texto():
     debate = Debate(
         question="q",
         mode="mcp",
         style="debate",
-        turns=[DebateTurn(team="barcelona", content="Vamos Barca")],
+        turns=[DebateTurn(team="real_madrid", content="Hala Madrid")],
     )
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
 
     with (
         patch(
@@ -204,13 +228,16 @@ def test_telegram_publisher_usa_html_y_negrita_para_el_equipo():
     ):
         publisher.publish(debate)
 
-    header_json, turn_json = (c.kwargs["json"] for c in post.call_args_list)
-    assert header_json["parse_mode"] == "HTML"
-    assert turn_json["parse_mode"] == "HTML"
-    assert f"<b>{BARCELONA_DISPLAY_NAME}</b>" in turn_json["text"]
+    header_call, turn_call = post.call_args_list
+    assert header_call.kwargs["json"]["parse_mode"] == "HTML"
+    assert turn_call.kwargs["json"]["parse_mode"] == "HTML"
+
+    # La identidad la da el bot (Paco/Real Madrid), no una etiqueta en el texto.
+    assert "TOKEN_PACO" in turn_call.args[0]
+    assert REAL_MADRID_DISPLAY_NAME not in turn_call.kwargs["json"]["text"]
 
 
-def test_telegram_publisher_incluye_traza_de_tools_y_escapa_html():
+def test_telegram_publisher_no_muestra_traza_de_tools_y_escapa_html():
     debate = Debate(
         question="q",
         mode="mcp",
@@ -225,7 +252,7 @@ def test_telegram_publisher_incluye_traza_de_tools_y_escapa_html():
             )
         ],
     )
-    publisher = TelegramPublisher(bot_token="TOKEN", chat_id="123")
+    publisher = _publisher()
 
     with (
         patch(
@@ -237,8 +264,27 @@ def test_telegram_publisher_incluye_traza_de_tools_y_escapa_html():
         publisher.publish(debate)
 
     turn_text = post.call_args_list[1].kwargs["json"]["text"]
-    assert "compare_players(" in turn_text
-    assert "A &amp; B" in turn_text
+    # Telegram no muestra la traza de tools (eso queda para la consola).
+    assert "compare_players(" not in turn_text
+    assert "\U0001f527" not in turn_text
     # El contenido del agente esta escapado: no debe colarse un tag HTML crudo.
     assert "<no debate>" not in turn_text
     assert "&lt;no debate&gt;" in turn_text
+
+
+def test_telegram_publisher_header_sin_modo_ni_estilo():
+    debate = Debate(question="q", mode="mcp", style="debate", turns=[])
+    publisher = _publisher()
+
+    with (
+        patch(
+            "src.social.telegram_publisher.requests.post",
+            side_effect=[_fake_response(1)],
+        ) as post,
+        patch("src.social.telegram_publisher.time.sleep"),
+    ):
+        publisher.publish(debate)
+
+    header_text = post.call_args_list[0].kwargs["json"]["text"]
+    assert "modo=" not in header_text
+    assert "estilo=" not in header_text

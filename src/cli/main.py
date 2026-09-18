@@ -269,7 +269,7 @@ async def _run_debate(
         elif buffer:
             body = buffer
         elif not body:
-            body = "[dim]...[/dim]"
+            body = f"[dim]{TEAM_LABELS[current_team]} esta pensando...[/dim]"
         return Panel(body, title=TEAM_LABELS[current_team], border_style=TEAM_STYLES.get(current_team, "cyan"))
 
     try:
@@ -278,6 +278,12 @@ async def _run_debate(
             name = event.get("name")
 
             if kind == "on_chain_start" and name in TEAM_LABELS:
+                if live is not None:
+                    # Defensivo: si el turno anterior no cerro su Live antes
+                    # de que arranque uno nuevo (p.ej. algun evento interno
+                    # inesperado), lo cerramos aca para no terminar con dos
+                    # paneles dibujados para el mismo turno.
+                    live.stop()
                 current_team = name
                 buffer = ""
                 tool_lines = []

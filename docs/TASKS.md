@@ -71,18 +71,21 @@ mismo para el detalle de las interfaces entre modulos.
 
 ### Dev Harold — Debate en red social (`src/social/`)
 
-Label: `dev:harold` `area:social` · Issues: #7 (arquitectura + Telegram), #13 (Reddit)
+Label: `dev:harold` `area:social` · Issues: #7 (arquitectura + Telegram), #13 (Reddit), #16 (Telegram multi-bot)
 
 - [x] Decision de arquitectura (ver `docs/ARCHITECTURE.md#publicacion-en-redes-sociales-srcsocial-fase-2--dev-harold`):
       interfaz `DebatePublisher` + registry por nombre de plataforma, para
       poder sumar redes sociales sin tocar CLI ni orquestador.
 - [x] Telegram implementado de punta a punta (issue #7): `--publish-to
       telegram` en `ask`/`chat`, un mensaje por turno encadenado con
-      `reply_to_message_id`, negrita HTML + traza de tools, throttle y
-      reintento ante rate-limit.
+      `reply_to_message_id`, traza de tools, throttle y reintento ante
+      rate-limit.
 - [x] Reddit implementado de punta a punta (issue #13): `--publish-to
       reddit`, post inicial + un comentario por turno encadenado como
       reply, formato Markdown.
+- [x] Telegram con bot independiente por equipo (issue #16): Josep y Paco
+      publican como cuentas de Telegram distintas (no un bot narrando
+      ambos lados) — la identidad la da el bot, no una etiqueta de texto.
 - [ ] Discord y Bluesky: clase publisher creada (cumple la interfaz) pero
       `publish()` todavia no implementado — mismo contrato, sin rediseño,
       se implementan cuando toque.
