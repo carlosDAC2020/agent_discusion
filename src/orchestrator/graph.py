@@ -104,9 +104,9 @@ def _format_context(
     if max_turns > 2 and turns_taken >= max_turns - 2:
         lines.append(
             "\n[RONDA FINAL - CIERRE Y CONCLUSIONES DEL DEBATE]: "
-            "Esta es tu última intervención en este debate. Además de rebatir o contrastar "
-            "lo que dijo tu rival, formula tu conclusión final definitiva y contundente "
-            "sobre el tema, despidiéndote y cerrando el debate."
+            "Esta es tu última intervención en este debate. Cierra con tu conclusión "
+            "final, contundente y breve, sin superar el límite de palabras que ya "
+            "tenés indicado en tus reglas."
         )
 
     return "\n".join(lines)
