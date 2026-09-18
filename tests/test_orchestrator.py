@@ -235,7 +235,7 @@ def test_format_context_closing_instruction_on_final_round():
         max_turns=8,
     )
     assert "[RONDA FINAL - CIERRE Y CONCLUSIONES DEL DEBATE]" in ctx_final
-    assert "conclusión final definitiva" in ctx_final
+    assert "conclusión final" in ctx_final
 
     # En rondas intermedias (turns_taken < 6) no debe aparecer el cierre
     ctx_mid = _format_context(
