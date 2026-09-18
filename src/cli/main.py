@@ -394,6 +394,38 @@ def ask(
 
 
 @app.command()
+def sim(
+    debug: bool = typer.Option(False, "--debug", "-d", help="Muestra la cuadricula, colisiones y POIs del bar"),
+    demo_movement: bool = typer.Option(False, "--demo-movement", "-m", help="Activa el modo de demostracion de movimiento ciclico A* sin BDI"),
+    bdi: bool = typer.Option(False, "--bdi", "-b", help="Activa el comportamiento autonomo deliberativo BDI para Josep y Paco"),
+    dialogue: bool = typer.Option(False, "--dialogue", help="Activa el debate real mediante LangGraph con bocadillos y streaming visual"),
+) -> None:
+    """Lanza la simulacion 2D en Pygame: Escena interactiva del Bar El Clasico."""
+    from src.simulation.debug_logger import debug_log
+
+    debug_log(
+        "CLI",
+        "SIM_ARGS_PARSED",
+        f"debug={debug}, demo_movement={demo_movement}, bdi={bdi}, dialogue={dialogue}",
+    )
+    final_bdi = bdi or dialogue
+    if dialogue and not bdi:
+        console.print("[dim]Aviso: La bandera --dialogue activa automáticamente la deliberación BDI.[/dim]")
+    debug_log(
+        "CLI",
+        "RESOLVED_SETTINGS",
+        f"final_bdi_active={final_bdi}, final_dialogue_enabled={dialogue}",
+    )
+    try:
+        from src.simulation.app import run_simulation
+    except ImportError as e:
+        console.print(f"[red]Error importando el modulo de simulacion: {e}[/red]")
+        console.print("[dim]Asegurate de tener Pygame instalado: pip install pygame[/dim]")
+        return
+    run_simulation(debug=debug, demo_movement=demo_movement, bdi=final_bdi, dialogue=dialogue)
+
+
+@app.command()
 def listen(
     mode: ModeOption = typer.Option(ModeOption.mcp, "--mode", help=MODE_HELP),
     style: StyleOption = typer.Option(StyleOption.debate, "--style", help=STYLE_HELP),
@@ -430,3 +462,4 @@ def listen(
 
 if __name__ == "__main__":
     app()
+

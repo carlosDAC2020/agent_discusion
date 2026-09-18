@@ -216,6 +216,55 @@ def test_make_node_falls_back_to_notice_when_still_empty_after_retry():
     assert "no genero una respuesta" in update["messages"][-1]["content"]
 
 
+def test_format_context_closing_instruction_on_final_round():
+    """Verifica que en la última ronda se incluya la directiva de cierre y conclusiones."""
+    messages = [
+        {"team": BARCELONA, "content": "Punto inicial."},
+        {"team": REAL_MADRID, "content": "Contraargumento."},
+        {"team": BARCELONA, "content": "Segunda réplica."},
+        {"team": REAL_MADRID, "content": "Segunda contrarréplica."},
+        {"team": BARCELONA, "content": "Tercera réplica."},
+        {"team": REAL_MADRID, "content": "Tercera contrarréplica."},
+    ]
+    # En un debate de 8 turnos (4 rondas), los turnos 6 y 7 (>= 8-2 = 6) son la ronda final de cierre
+    ctx_final = _format_context(
+        "¿Quién es el mejor?",
+        messages,
+        STYLE_DEBATE,
+        turns_taken=6,
+        max_turns=8,
+    )
+    assert "[RONDA FINAL - CIERRE Y CONCLUSIONES DEL DEBATE]" in ctx_final
+    assert "conclusión final definitiva" in ctx_final
+
+    # En rondas intermedias (turns_taken < 6) no debe aparecer el cierre
+    ctx_mid = _format_context(
+        "¿Quién es el mejor?",
+        messages[:2],
+        STYLE_DEBATE,
+        turns_taken=2,
+        max_turns=8,
+    )
+    assert "[RONDA FINAL - CIERRE Y CONCLUSIONES DEL DEBATE]" not in ctx_mid
+
+
+def test_multi_round_debate_execution_4_rounds_8_turns():
+    """Verifica que un debate configurado a 4 rondas ejecute exactamente 8 turnos alternados."""
+    graph = _build_fake_graph()
+    state = initial_state("¿Quién tiene mejor cantera?", max_rounds=4)
+
+    assert state["max_turns"] == 8
+    result = asyncio.run(graph.ainvoke(state))
+
+    assert result["turns_taken"] == 8
+    assert len(result["messages"]) == 8
+
+    # Verificar alternancia estricta de turnos
+    expected_teams = [state["turn_order"][i % 2] for i in range(8)]
+    spoken_teams = [m["team"] for m in result["messages"]]
+    assert spoken_teams == expected_teams
+
+
 def test_make_node_retries_once_on_transient_exception():
     # Reproduce "No generations found in stream." visto en produccion: un
     # hiccup transitorio de Gemini que antes tumbaba todo el debate sin
