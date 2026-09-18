@@ -5,6 +5,7 @@ de turnos y condiciones de fin del debate. Los agentes en si (prompts,
 personalidad) los define el Dev 2 en src/agents/*.
 """
 
+import asyncio
 from typing import Any, Dict, List, TypedDict
 
 from langchain_core.messages import ToolMessage
@@ -112,16 +113,25 @@ def _format_context(
 
 
 async def _invoke_agent_with_retry(agent, payload: dict, max_attempts: int = 2):
-    """Invoca al agente reintentando si devuelve texto vacio.
+    """Invoca al agente reintentando ante texto vacio O excepcion transitoria.
 
     Algunos proveedores (Gemini en particular) a veces terminan un turno del
-    ReAct loop sin texto final (hiccup transitorio). Reintentamos una vez
-    antes de rendirnos.
+    ReAct loop sin texto final, o directamente lanzan una excepcion
+    transitoria del streaming interno (visto en produccion: "No generations
+    found in stream."). Reintentamos antes de rendirnos; en el ultimo
+    intento, si vuelve a fallar con excepcion, la dejamos propagar (el
+    caller ya sabe mostrar un mensaje claro sin traceback crudo).
     """
     result: dict = {"messages": []}
     reply = ""
-    for _ in range(max_attempts):
-        result = await agent.ainvoke(payload)
+    for attempt in range(1, max_attempts + 1):
+        try:
+            result = await agent.ainvoke(payload)
+        except Exception:
+            if attempt == max_attempts:
+                raise
+            await asyncio.sleep(1)
+            continue
         reply = _extract_text(result["messages"][-1].content)
         if reply.strip():
             break

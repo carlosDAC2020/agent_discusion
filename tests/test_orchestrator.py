@@ -6,7 +6,9 @@ orden correcto y termine al llegar a max_turns.
 
 import asyncio
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from langchain_core.messages import ToolMessage
 from langgraph.graph import END, START, StateGraph
 
@@ -261,3 +263,39 @@ def test_multi_round_debate_execution_4_rounds_8_turns():
     expected_teams = [state["turn_order"][i % 2] for i in range(8)]
     spoken_teams = [m["team"] for m in result["messages"]]
     assert spoken_teams == expected_teams
+
+
+def test_make_node_retries_once_on_transient_exception():
+    # Reproduce "No generations found in stream." visto en produccion: un
+    # hiccup transitorio de Gemini que antes tumbaba todo el debate sin
+    # reintentar (el retry viejo solo cubria respuesta vacia, no excepcion).
+    class FlakyExceptionAgent:
+        def __init__(self):
+            self.calls = 0
+
+        async def ainvoke(self, _input):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("No generations found in stream.")
+            return {"messages": [SimpleNamespace(content="Respuesta despues de reintentar", tool_calls=None)]}
+
+    agent = FlakyExceptionAgent()
+    node = _make_node(BARCELONA, agent)
+
+    with patch("src.orchestrator.graph.asyncio.sleep", new=AsyncMock()):
+        update = asyncio.run(node(_base_state()))
+
+    assert agent.calls == 2
+    assert update["messages"][-1]["content"] == "Respuesta despues de reintentar"
+
+
+def test_make_node_propaga_excepcion_si_persiste_tras_reintentos():
+    class AlwaysFailingAgent:
+        async def ainvoke(self, _input):
+            raise RuntimeError("No generations found in stream.")
+
+    node = _make_node(BARCELONA, AlwaysFailingAgent())
+
+    with patch("src.orchestrator.graph.asyncio.sleep", new=AsyncMock()):
+        with pytest.raises(RuntimeError, match="No generations found in stream"):
+            asyncio.run(node(_base_state()))
