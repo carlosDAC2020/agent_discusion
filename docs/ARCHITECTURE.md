@@ -84,7 +84,7 @@ red social externa, sin tocar `src/orchestrator/` ni `src/agents/`.
 
   | Plataforma | Estado | Idea |
   |---|---|---|
-  | Telegram | **Implementado** (issue #16: bot independiente por equipo) | Bot API simple (token via @BotFather). Josep y Paco son BOTS DISTINTOS (uno por equipo), no uno solo narrando ambos lados: la identidad la da el bot (nombre + foto), no una etiqueta de texto. Cada turno encadenado con `reply_to_message_id` al turno anterior, sin importar que bot lo mando. |
+  | Telegram | **Implementado** (issues #16, #18) | Bot API simple (token via @BotFather). Un bot "narrador" publica la pregunta; Josep y Paco son BOTS DISTINTOS (uno por equipo), no uno solo narrando ambos lados — la identidad la da el bot (nombre + foto), no una etiqueta de texto. Sin `reply_to_message_id` entre turnos: Telegram no deja que un bot responda a un mensaje de OTRO bot (confirmado en pruebas manuales), el orden de llegada al chat ya transmite la secuencia. `python main.py listen` corre un long-polling sobre `getUpdates`: cualquiera en el grupo escribe `/debate <pregunta>` y dispara el debate sin tocar la CLI. |
   | Reddit | **Implementado** (issue #13) | `praw`, post inicial + un comentario por turno en cadena de replies (`submission.reply` -> `comment.reply`). Requiere subreddit propio. `praw` ya respeta el rate-limit de Reddit, no hace falta throttle manual como en Telegram. |
   | Discord | Planeado | Webhook de canal, un mensaje por turno. |
   | Bluesky | Planeado | AT Protocol (`atproto`), alternativa gratuita a X/Twitter. |
@@ -93,8 +93,9 @@ red social externa, sin tocar `src/orchestrator/` ni `src/agents/`.
   interfaz) pero `publish()` lanza `NotImplementedError` — la arquitectura
   esta lista para sumarlos sin rediseño, se implementan cuando toque.
 - **Uso**: `python main.py ask "..." --publish-to telegram` (o `reddit`,
-  o el flag equivalente en `chat`). Credenciales en `.env`
-  (`TELEGRAM_BOT_TOKEN_BARCELONA`/`TELEGRAM_BOT_TOKEN_REAL_MADRID`/
-  `TELEGRAM_CHAT_ID` — ambos bots deben estar agregados como admin del
-  mismo chat/canal — o `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`/
+  o el flag equivalente en `chat`), o `python main.py listen` para que el
+  chat de Telegram dispare debates solo. Credenciales en `.env`
+  (`TELEGRAM_BOT_TOKEN` narrador + `TELEGRAM_BOT_TOKEN_BARCELONA`/
+  `TELEGRAM_BOT_TOKEN_REAL_MADRID`/`TELEGRAM_CHAT_ID` — los 3 bots deben
+  estar en un GRUPO, no canal — o `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`/
   `REDDIT_USERNAME`/`REDDIT_PASSWORD`/`REDDIT_SUBREDDIT`).

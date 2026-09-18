@@ -8,6 +8,7 @@ import enum
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -390,6 +391,41 @@ def ask(
     publisher = _resolve_publisher(publish_to)
     rounds_value = _resolve_rounds(rounds, style.value)
     asyncio.run(_run_debate(question, rounds_value, mode.value, style.value, export, publisher))
+
+
+@app.command()
+def listen(
+    mode: ModeOption = typer.Option(ModeOption.mcp, "--mode", help=MODE_HELP),
+    style: StyleOption = typer.Option(StyleOption.debate, "--style", help=STYLE_HELP),
+    rounds: Optional[int] = typer.Option(None, help=ROUNDS_HELP),
+) -> None:
+    """Escucha el grupo de Telegram: cualquiera escribe '/debate <pregunta>' y dispara un debate."""
+    from src.social.telegram_listener import TRIGGER_PREFIX, TelegramListener
+
+    publisher = _resolve_publisher("telegram")
+    listener = TelegramListener()
+    rounds_value = _resolve_rounds(rounds, style.value)
+
+    console.print(
+        f"[dim]Escuchando \"{TRIGGER_PREFIX} <pregunta>\" en el chat de Telegram "
+        f"(modo={mode.value}, estilo={style.value}). Ctrl+C para salir.[/dim]\n"
+    )
+
+    while True:
+        try:
+            questions = listener.poll_once()
+        except PublishError as exc:
+            console.print(Panel(str(exc), title="Error escuchando Telegram", border_style="red"))
+            time.sleep(5)
+            continue
+        except KeyboardInterrupt:
+            console.print("\n[dim]Hasta luego.[/dim]")
+            break
+
+        for question in questions:
+            console.print(f"[bold]Pregunta recibida por Telegram:[/bold] {question}\n")
+            asyncio.run(_run_debate(question, rounds_value, mode.value, style.value, None, publisher))
+            console.print()
 
 
 if __name__ == "__main__":
